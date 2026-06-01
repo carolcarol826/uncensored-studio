@@ -1,0 +1,218 @@
+// Uncensored Studio · Commercial Schema
+//
+// Local dev: SQLite (DATABASE_URL=file:./dev.db)
+// Production: Neon Postgres (DATABASE_URL=postgresql://...)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------- Auth (NextAuth.js) --------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Age verification (must accept 18+ on signup)
+  ageVerifiedAt DateTime?
+
+  // Credits
+  credits       Int       @default(20) // free-trial credits on signup
+  totalSpent    Int       @default(0)  // lifetime credits consumed (analytics)
+
+  // Stripe-like portable customer ids
+  paddleCustomerId   String? @unique
+  nowpaymentsCustomerId String? @unique
+
+  accounts      Account[]
+  sessions      Session[]
+  generations   Generation[]
+  creditTxs     CreditTx[]
+  subscriptions Subscription[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// -------- Generation history --------
+
+enum GenerationKind {
+  TEXT2IMG
+  IMG2IMG
+  IMG2VIDEO
+  TEXT2VIDEO
+  CHARACTER
+}
+
+enum GenerationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+model Generation {
+  id           String           @id @default(cuid())
+  userId       String
+  kind         GenerationKind
+  workflowId   String
+  checkpoint   String
+  prompt       String           @db.Text
+  negativePrompt String?        @db.Text
+  width        Int
+  height       Int
+  steps        Int
+  cfg          Float
+  seed         BigInt
+  batchSize    Int              @default(1)
+  numFrames    Int?
+  inputImageKey String?         // R2 key for uploaded reference
+  costCredits  Int
+  status       GenerationStatus @default(PENDING)
+  promptIdRemote String?        // RunPod / ComfyUI prompt_id
+  errorMessage String?          @db.Text
+  outputs      OutputFile[]
+  createdAt    DateTime         @default(now())
+  completedAt  DateTime?
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model OutputFile {
+  id           String   @id @default(cuid())
+  generationId String
+  kind         String   // "image" | "video"
+  key          String   // R2 object key
+  width        Int?
+  height       Int?
+  sizeBytes    Int?
+  durationSec  Float?
+  createdAt    DateTime @default(now())
+
+  generation   Generation @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId])
+}
+
+// -------- Credits ledger --------
+
+enum CreditTxKind {
+  SIGNUP_BONUS
+  GENERATION
+  REFUND
+  PURCHASE_CRYPTO
+  PURCHASE_CARD
+  SUBSCRIPTION_RENEWAL
+  ADMIN_ADJUST
+}
+
+model CreditTx {
+  id           String       @id @default(cuid())
+  userId       String
+  kind         CreditTxKind
+  delta        Int          // positive = credit, negative = debit
+  balanceAfter Int
+  reference    String?      // generationId | paymentId | webhook event id
+  note         String?
+  createdAt    DateTime     @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// -------- Subscriptions (Paddle when ready) --------
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELED
+  PAST_DUE
+}
+
+model Subscription {
+  id           String             @id @default(cuid())
+  userId       String
+  provider     String             // "paddle" | "nowpayments"
+  providerSubId String            @unique
+  planId       String             // internal plan id like "monthly_basic"
+  status       SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd DateTime
+  cancelAtPeriodEnd Boolean       @default(false)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// -------- Webhook idempotency --------
+
+model WebhookEvent {
+  id           String   @id // provider-side event id
+  provider     String   // "paddle" | "nowpayments"
+  eventType    String
+  payload      String   @db.Text
+  processedAt  DateTime @default(now())
+
+  @@index([provider, eventType])
+}
+
+// -------- Content takedown requests --------
+
+model TakedownRequest {
+  id           String   @id @default(cuid())
+  reporterEmail String
+  reporterName String?
+  outputFileId String?
+  reason       String   @db.Text
+  evidence     String?  @db.Text
+  status       String   @default("OPEN") // OPEN | RESOLVED | REJECTED
+  resolvedAt   DateTime?
+  resolvedNote String?  @db.Text
+  createdAt    DateTime @default(now())
+}

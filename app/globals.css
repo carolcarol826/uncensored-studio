@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background: #0a0a0a;
+  color: #fafafa;
+  min-height: 100vh;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #404040 #141414;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #141414;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 5px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #525252;
+}
+
+input, textarea, select, button {
+  outline: none;
+}
+
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-hover;
+  }
+  .btn-secondary {
+    @apply btn bg-bg-card text-fg border border-bg-border hover:bg-bg-elevated;
+  }
+  .btn-ghost {
+    @apply btn text-fg-muted hover:text-fg hover:bg-bg-card;
+  }
+  .card {
+    @apply bg-bg-card border border-bg-border rounded-lg p-4;
+  }
+  .input {
+    @apply w-full px-3 py-2 bg-bg-card border border-bg-border rounded-md text-fg placeholder-fg-subtle focus:border-accent;
+  }
+  .label {
+    @apply block text-sm font-medium text-fg-muted mb-1.5;
+  }
+}

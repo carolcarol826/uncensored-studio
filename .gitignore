@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnp.*
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Prisma generated
+node_modules/.prisma
+/prisma/dev.db
+/prisma/dev.db-journal
+
+# Env files (never commit secrets!)
+.env
+.env.local
+.env.*.local
+.env.production
+!.env.example
+
+# Runtime data
+data/outputs/
+data/uploads/
+data/settings.json
+
+# Generated screenshots (keep .gitignore but not the files)
+docs/screenshots/*.png
+docs/screenshots/*.jpeg
+docs/screenshots/*.jpg
+docs/screenshots/*.webp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+coverage/
+*.lcov
+
+# Misc
+.cache/
+.eslintcache
+*.tsbuildinfo
+next-env.d.ts

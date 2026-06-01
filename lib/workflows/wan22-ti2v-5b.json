@@ -1,0 +1,71 @@
+{
+  "_comment": "Wan 2.2 TI2V-5B GGUF Q4 文生视频。使用 city96/ComfyUI-GGUF 的 UnetLoaderGGUF + ComfyUI 原生 Wan 节点。需要：ComfyUI 0.22+、ComfyUI-GGUF、ComfyUI-VideoHelperSuite。模型放在 models/diffusion_models/，umT5 放在 models/text_encoders/，VAE 放在 models/vae/。",
+  "1": {
+    "inputs": { "unet_name": "__CKPT__" },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": { "title": "UNET Loader (GGUF)" }
+  },
+  "2": {
+    "inputs": { "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type": "wan" },
+    "class_type": "CLIPLoader",
+    "_meta": { "title": "umT5 Loader" }
+  },
+  "3": {
+    "inputs": { "vae_name": "wan_2.1_vae.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "VAE Loader" }
+  },
+  "4": {
+    "inputs": { "text": "__POSITIVE__", "clip": ["2", 0] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive" }
+  },
+  "5": {
+    "inputs": { "text": "__NEGATIVE__", "clip": ["2", 0] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative" }
+  },
+  "6": {
+    "inputs": { "width": 704, "height": 480, "length": 49, "batch_size": 1 },
+    "class_type": "EmptyHunyuanLatentVideo",
+    "_meta": { "title": "Latent Video" }
+  },
+  "7": {
+    "inputs": {
+      "seed": 0,
+      "steps": 25,
+      "cfg": 7,
+      "sampler_name": "uni_pc",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["1", 0],
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "latent_image": ["6", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "Sampler" }
+  },
+  "8": {
+    "inputs": { "samples": ["7", 0], "vae": ["3", 0] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode" }
+  },
+  "9": {
+    "inputs": {
+      "images": ["8", 0],
+      "frame_rate": 16,
+      "loop_count": 0,
+      "filename_prefix": "uncensored-studio/wan-t2v",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": { "title": "Save MP4" }
+  }
+}

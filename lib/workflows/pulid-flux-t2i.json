@@ -1,0 +1,102 @@
+{
+  "_comment": "PuLID-Flux 角色一致性 (sipie800/ComfyUI-PuLID-Flux-Enhanced + Flux schnell GGUF Q4，适配 8GB VRAM)。需要：ComfyUI-PuLID-Flux-Enhanced、ComfyUI-GGUF 节点，以及 pulid_flux_v0.9.1.safetensors、InsightFace antelopev2。",
+  "1": {
+    "inputs": { "image": "__INPUT_IMAGE__", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "参考脸" }
+  },
+  "2": {
+    "inputs": { "unet_name": "__CKPT__" },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": { "title": "Flux UNet (GGUF)" }
+  },
+  "3": {
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": { "title": "Dual CLIP" }
+  },
+  "4": {
+    "inputs": { "vae_name": "ae.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "VAE" }
+  },
+  "5": {
+    "inputs": { "pulid_file": "pulid_flux_v0.9.1.safetensors" },
+    "class_type": "PulidFluxModelLoader",
+    "_meta": { "title": "PuLID Model" }
+  },
+  "6": {
+    "inputs": {},
+    "class_type": "PulidFluxEvaClipLoader",
+    "_meta": { "title": "EVA-CLIP" }
+  },
+  "7": {
+    "inputs": { "provider": "CUDA" },
+    "class_type": "PulidFluxInsightFaceLoader",
+    "_meta": { "title": "InsightFace" }
+  },
+  "8": {
+    "inputs": {
+      "model": ["2", 0],
+      "pulid_flux": ["5", 0],
+      "eva_clip": ["6", 0],
+      "face_analysis": ["7", 0],
+      "image": ["1", 0],
+      "weight": 0.95,
+      "start_at": 0.0,
+      "end_at": 1.0,
+      "fusion": "mean",
+      "fusion_weight_max": 1.0,
+      "fusion_weight_min": 0.0,
+      "train_step": 1000,
+      "use_gray": true
+    },
+    "class_type": "ApplyPulidFlux",
+    "_meta": { "title": "Apply PuLID" }
+  },
+  "10": {
+    "inputs": { "text": "__POSITIVE__", "clip": ["3", 0] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive" }
+  },
+  "11": {
+    "inputs": { "conditioning": ["10", 0] },
+    "class_type": "ConditioningZeroOut",
+    "_meta": { "title": "Negative (zero)" }
+  },
+  "12": {
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": { "title": "Latent" }
+  },
+  "13": {
+    "inputs": {
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["8", 0],
+      "positive": ["10", 0],
+      "negative": ["11", 0],
+      "latent_image": ["12", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "Sampler" }
+  },
+  "14": {
+    "inputs": { "samples": ["13", 0], "vae": ["4", 0] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode" }
+  },
+  "15": {
+    "inputs": { "filename_prefix": "uncensored-studio/pulid-flux", "images": ["14", 0] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save" }
+  }
+}
