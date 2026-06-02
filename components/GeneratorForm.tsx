@@ -238,14 +238,19 @@ export default function GeneratorForm({
       </header>
 
       {!comfyOnline && (
-        <div className="card border-warning/30 bg-warning/5">
-          <div className="text-sm text-warning font-medium">⚠ ComfyUI 未连接</div>
-          <div className="text-sm text-fg-muted mt-1">
-            请先在{' '}
-            <a href="/settings" className="text-accent hover:underline">
-              设置
-            </a>{' '}
-            中确认 ComfyUI 地址，或先启动 ComfyUI。
+        <div className="card border-accent/30 bg-accent/5">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">🚀</div>
+            <div className="flex-1">
+              <div className="text-accent font-medium">生成服务部署中</div>
+              <div className="text-sm text-fg-muted mt-1">
+                GPU 推理后端正在初始化，预计 24 小时内开放生成功能。
+                你现在可以浏览所有页面、注册账号、查看定价。
+              </div>
+              <div className="text-xs text-fg-subtle mt-2">
+                注册即赠 20 积分，开通后立即可用。
+              </div>
+            </div>
           </div>
         </div>
       )}
