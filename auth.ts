@@ -4,8 +4,9 @@
 import NextAuth, { type DefaultSession } from 'next-auth';
 import Resend from 'next-auth/providers/resend';
 import { Resend as ResendClient } from 'resend';
+import { PrismaAdapter } from '@auth/prisma-adapter';
 import { createUser, getUserByEmail } from './lib/store';
-import { isDbSkipped } from './lib/db';
+import { isDbSkipped, prisma } from './lib/db';
 
 declare module 'next-auth' {
   interface Session {
@@ -22,7 +23,10 @@ const PRINT_LINKS = process.env.AUTH_DEV_PRINT_LINKS === 'true' || !process.env.
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   trustHost: true,
-  session: { strategy: 'jwt' }, // JWT works without DB; required in SKIP_DB mode
+  // Prisma adapter is required for Email/Resend provider (stores VerificationTokens).
+  // In SKIP_DB mode (local dev) we omit it and rely on JWT-only session.
+  adapter: isDbSkipped ? undefined : PrismaAdapter(prisma),
+  session: { strategy: 'jwt' }, // JWT session works with adapter
   secret: process.env.AUTH_SECRET,
 
   providers: [
