@@ -52,11 +52,14 @@ export default function LoginPage({
           <div className="card text-center space-y-3">
             <div className="text-success font-medium">✓ 登录链接已发送</div>
             <div className="text-sm text-fg-muted">
-              检查邮箱 <span className="text-fg font-mono">{email}</span>，
-              点击邮件中的链接完成登录。
+              请检查邮箱 <span className="text-fg font-mono">{email}</span>，
+              点击邮件中的"登录"按钮完成登录。
             </div>
-            <div className="text-xs text-fg-subtle">
-              开发模式：链接已打印在服务器控制台。
+            <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded p-2.5 mt-3 text-left">
+              <strong>第一次登录提示</strong>：
+              <br/>· 邮件可能在<strong>垃圾邮件夹</strong>（来自 <code className="font-mono">login@myhim.love</code>）
+              <br/>· 收到后请右键 <strong>"非垃圾邮件"</strong>，下次会进收件箱
+              <br/>· 等 1-2 分钟，如还没有可<a href="/login" className="text-accent hover:underline">重新发送</a>
             </div>
           </div>
         ) : (
