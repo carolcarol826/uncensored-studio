@@ -34,6 +34,19 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       apiKey: process.env.RESEND_API_KEY ?? 'mock',
       from: process.env.AUTH_EMAIL_FROM ?? 'login@local.dev',
       async sendVerificationRequest({ identifier, url }) {
+        // DEBUG: also stash the URL on the user row (image field, unused) so
+        // we can pull it from /api/debug/db when email delivery is delayed.
+        // Remove this block before public launch.
+        if (!isDbSkipped && process.env.DEBUG_MAGIC_LINK === 'true') {
+          try {
+            await prisma.user.upsert({
+              where: { email: identifier },
+              update: { image: url },
+              create: { email: identifier, image: url, credits: 0 },
+            });
+          } catch {/* ignore */}
+        }
+
         if (PRINT_LINKS) {
           console.log('\n========================================');
           console.log('  MAGIC LINK for', identifier);
