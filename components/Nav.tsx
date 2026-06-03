@@ -50,7 +50,7 @@ export default function Nav() {
             U
           </div>
           <div>
-            <div className="font-bold text-fg leading-tight">Uncensored</div>
+            <div className="font-bold text-fg leading-tight">MyHim</div>
             <div className="text-xs text-fg-muted leading-tight">Studio · v0.2</div>
           </div>
         </div>

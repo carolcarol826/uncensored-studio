@@ -40,7 +40,7 @@ export default function LoginPage({
             <div className="w-10 h-10 rounded bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center font-bold text-white text-lg">
               U
             </div>
-            <span className="text-xl font-bold">Uncensored Studio</span>
+            <span className="text-xl font-bold">MyHim Studio</span>
           </div>
           <h1 className="text-2xl font-bold">登录 / 注册</h1>
           <p className="text-fg-muted text-sm mt-2">

@@ -54,3 +54,5 @@ coverage/
 .eslintcache
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel

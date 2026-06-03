@@ -60,10 +60,10 @@ export default function Home() {
       <div className="space-y-12 max-w-4xl">
         <header className="text-center space-y-4 py-8">
           <h1 className="text-4xl md:text-5xl font-bold">
-            无限制的 AI 创作工具
+            MyHim · AI 创作工坊
           </h1>
           <p className="text-fg-muted text-lg max-w-2xl mx-auto">
-            从文本生成高质量图像与视频，基于 SDXL / Flux / Wan 2.2 等最新开源模型。
+            用 AI 自由创作高质量图像与视频。基于 SDXL / Flux / Wan 2.2 开源模型。
             注册即送 <span className="text-accent font-semibold">20 积分</span>。
           </p>
           <div className="flex justify-center gap-3 pt-2">

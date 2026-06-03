@@ -45,10 +45,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         const { error } = await resend.emails.send({
           from: process.env.AUTH_EMAIL_FROM!,
           to: identifier,
-          subject: '登录 Uncensored Studio',
+          subject: '登录 MyHim Studio',
           html: `
             <div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto;padding:32px;color:#111;">
-              <h2 style="margin:0 0 12px;">登录 Uncensored Studio</h2>
+              <h2 style="margin:0 0 12px;">登录 MyHim Studio</h2>
               <p style="color:#555;margin:0 0 24px;">点击下方按钮完成登录。链接 24 小时内有效。</p>
               <a href="${url}" style="display:inline-block;padding:12px 22px;background:#3b82f6;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">登录</a>
               <p style="color:#999;font-size:12px;margin:32px 0 0;">若按钮无法点击，请复制此链接到浏览器：<br/>${url}</p>
