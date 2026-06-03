@@ -27,6 +27,15 @@ export interface SubscriptionPlan {
   monthlyCredits: number;
   features: string[];
   recommended?: boolean;
+  /** Paddle price id (pri_xxx). When unset → "Paddle 待上线". */
+  paddlePriceId?: string;
+}
+
+// Paddle price IDs come from env: PADDLE_PRICE_<PLAN_ID_UPPER>
+// e.g. PADDLE_PRICE_STARTER_MONTHLY=pri_01h...
+function paddlePrice(planId: string): string | undefined {
+  const key = `PADDLE_PRICE_${planId.toUpperCase()}`;
+  return process.env[key];
 }
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
@@ -44,6 +53,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     monthlyCredits: 500,
     features: ['每月 500 积分', '约 500 张图 / 50 段视频', 'Discord 优先支持', '7 天历史保留'],
     recommended: true,
+    paddlePriceId: paddlePrice('starter_monthly'),
   },
   {
     id: 'pro_monthly',
@@ -51,6 +61,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     priceUsd: 29.9,
     monthlyCredits: 2000,
     features: ['每月 2000 积分', '约 2000 张图 / 200 段视频', '私聊客服', '30 天历史保留'],
+    paddlePriceId: paddlePrice('pro_monthly'),
   },
   {
     id: 'studio_monthly',
@@ -58,6 +69,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     priceUsd: 99.9,
     monthlyCredits: 8000,
     features: ['每月 8000 积分', '商业授权', 'API 访问', '90 天历史保留', '专属客户经理'],
+    paddlePriceId: paddlePrice('studio_monthly'),
   },
 ];
 
@@ -66,14 +78,16 @@ export interface TopupPack {
   credits: number;
   priceUsd: number;
   bonus?: string;
+  /** Paddle one-time price id. */
+  paddlePriceId?: string;
 }
 
 // One-time top-ups (no subscription). Better unit price as size goes up.
 export const TOPUP_PACKS: TopupPack[] = [
-  { id: 'topup_small', credits: 250, priceUsd: 5 },           // $0.020/cr
-  { id: 'topup_medium', credits: 1200, priceUsd: 20, bonus: '送 200' },  // $0.0167/cr eff
-  { id: 'topup_large', credits: 3500, priceUsd: 50, bonus: '送 1000' }, // $0.0143/cr eff
-  { id: 'topup_xl', credits: 8000, priceUsd: 100, bonus: '送 3000' },   // $0.0125/cr eff
+  { id: 'topup_small', credits: 250, priceUsd: 5, paddlePriceId: process.env.PADDLE_PRICE_TOPUP_SMALL },           // $0.020/cr
+  { id: 'topup_medium', credits: 1200, priceUsd: 20, bonus: '送 200', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_MEDIUM },  // $0.0167/cr eff
+  { id: 'topup_large', credits: 3500, priceUsd: 50, bonus: '送 1000', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_LARGE }, // $0.0143/cr eff
+  { id: 'topup_xl', credits: 8000, priceUsd: 100, bonus: '送 3000', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_XL },   // $0.0125/cr eff
 ];
 
 export function getPlan(id: string): SubscriptionPlan | undefined {

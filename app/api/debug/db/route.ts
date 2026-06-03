@@ -23,6 +23,19 @@ export async function GET() {
       select: { email: true, image: true, updatedAt: true },
     });
 
+    // List users (id + email + credits) so we can drive payment tests
+    const userList = await prisma.user.findMany({
+      select: { id: true, email: true, credits: true, ageVerifiedAt: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    // Recent credit transactions
+    const recentTx = await prisma.creditTx.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: { id: true, userId: true, delta: true, balanceAfter: true, kind: true, reference: true, note: true, createdAt: true },
+    });
+
     return NextResponse.json({
       mode: 'postgres',
       counts: { users, verificationTokens: tokens, sessions, accounts, creditTxs },
@@ -33,6 +46,8 @@ export async function GET() {
             updatedAt: latestUserWithLink.updatedAt,
           }
         : null,
+      users: userList,
+      recentTx,
     });
   } catch (err: any) {
     return NextResponse.json(

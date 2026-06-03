@@ -1,0 +1,16 @@
+import { NextResponse } from 'next/server';
+import { isConfigured as paddleEnabled } from '@/lib/paddle';
+import { isConfigured as nowpaymentsEnabled } from '@/lib/nowpayments';
+
+export const dynamic = 'force-dynamic';
+
+// Public, unauthenticated: lets the client know which payment providers
+// are wired up so the UI can show / hide buttons gracefully.
+export async function GET() {
+  return NextResponse.json({
+    payments: {
+      nowpayments: nowpaymentsEnabled,
+      paddle: paddleEnabled,
+    },
+  });
+}

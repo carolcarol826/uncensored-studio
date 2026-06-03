@@ -6,29 +6,45 @@ import { SUBSCRIPTION_PLANS, TOPUP_PACKS } from '@/lib/plans';
 export default function PricingPage() {
   const [user, setUser] = useState<{ id: string; credits: number } | null>(null);
   const [loading, setLoading] = useState<string>('');
+  const [providers, setProviders] = useState<{ nowpayments: boolean; paddle: boolean }>({
+    nowpayments: true,
+    paddle: false,
+  });
 
   useEffect(() => {
     fetch('/api/me')
       .then((r) => r.json())
       .then((d) => setUser(d.user));
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((d) => d.payments && setProviders(d.payments))
+      .catch(() => {/* keep defaults */});
   }, []);
 
-  const buy = async (kind: 'topup' | 'plan', id: string) => {
+  const buy = async (
+    kind: 'topup' | 'plan',
+    id: string,
+    provider: 'nowpayments' | 'paddle'
+  ) => {
     if (!user) {
       window.location.href = '/login';
       return;
     }
-    setLoading(`${kind}_${id}`);
+    setLoading(`${provider}_${kind}_${id}`);
     try {
       const body = kind === 'topup' ? { topupId: id } : { planId: id };
-      const res = await fetch('/api/checkout/nowpayments', {
+      const endpoint =
+        provider === 'paddle'
+          ? '/api/checkout/paddle'
+          : '/api/checkout/nowpayments';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Checkout failed');
-      window.location.href = data.invoiceUrl;
+      window.location.href = data.checkoutUrl || data.invoiceUrl;
     } catch (e: any) {
       alert(e?.message || 'Checkout failed');
       setLoading('');
@@ -52,16 +68,20 @@ export default function PricingPage() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">月度订阅</h2>
         <p className="text-sm text-fg-muted">
-          适合长期使用，每月自动续费送积分（订阅功能需 Paddle 接入后启用，当前仅作展示）。
+          {providers.paddle
+            ? '按月自动续费，可随时取消。信用卡 / Apple Pay / Google Pay 通过 Paddle 结算。'
+            : '订阅功能需 Paddle 接入后启用。当前可使用下方加密支付一次性充值。'}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {SUBSCRIPTION_PLANS.map((p) => (
+          {SUBSCRIPTION_PLANS.map((p) => {
+            const paddleReady = providers.paddle && !!p.paddlePriceId;
+            const subLoadingPaddle = loading === `paddle_plan_${p.id}`;
+            const subLoadingCrypto = loading === `nowpayments_plan_${p.id}`;
+            return (
             <div
               key={p.id}
               className={`card flex flex-col ${
-                p.recommended
-                  ? 'border-accent bg-accent/5'
-                  : ''
+                p.recommended ? 'border-accent bg-accent/5' : ''
               }`}
             >
               {p.recommended && (
@@ -91,14 +111,43 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <button
-                disabled
-                className="btn-secondary opacity-50 cursor-not-allowed"
-              >
-                {p.priceUsd === 0 ? '注册即送' : 'Paddle 待上线'}
-              </button>
+              {p.priceUsd === 0 ? (
+                <button disabled className="btn-secondary opacity-50 cursor-not-allowed">
+                  注册即送
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  {paddleReady ? (
+                    <button
+                      onClick={() => buy('plan', p.id, 'paddle')}
+                      disabled={subLoadingPaddle}
+                      className="btn-primary w-full"
+                    >
+                      {subLoadingPaddle ? '跳转中…' : '订阅（信用卡）'}
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="btn-secondary opacity-50 cursor-not-allowed w-full"
+                      title={providers.paddle ? 'Paddle price 未配置' : 'Paddle 未启用'}
+                    >
+                      Paddle 待上线
+                    </button>
+                  )}
+                  {providers.nowpayments && (
+                    <button
+                      onClick={() => buy('plan', p.id, 'nowpayments')}
+                      disabled={subLoadingCrypto}
+                      className="btn-secondary w-full text-xs"
+                    >
+                      {subLoadingCrypto ? '跳转中…' : '加密一次性付款（无自动续费）'}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -124,13 +173,24 @@ export default function PricingPage() {
               <div className="text-xs text-fg-subtle mb-4">
                 单价 ${(t.priceUsd / (t.credits + (t.bonus ? Number(t.bonus.replace(/\D/g, '')) || 0 : 0))).toFixed(4)} / 积分
               </div>
-              <button
-                onClick={() => buy('topup', t.id)}
-                disabled={loading === `topup_${t.id}`}
-                className="btn-primary"
-              >
-                {loading === `topup_${t.id}` ? '跳转中…' : '加密支付'}
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => buy('topup', t.id, 'nowpayments')}
+                  disabled={loading === `nowpayments_topup_${t.id}`}
+                  className="btn-primary w-full"
+                >
+                  {loading === `nowpayments_topup_${t.id}` ? '跳转中…' : '加密支付'}
+                </button>
+                {providers.paddle && t.paddlePriceId && (
+                  <button
+                    onClick={() => buy('topup', t.id, 'paddle')}
+                    disabled={loading === `paddle_topup_${t.id}`}
+                    className="btn-secondary w-full text-xs"
+                  >
+                    {loading === `paddle_topup_${t.id}` ? '跳转中…' : '信用卡'}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
