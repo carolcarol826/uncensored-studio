@@ -83,11 +83,13 @@ export interface TopupPack {
 }
 
 // One-time top-ups (no subscription). Better unit price as size goes up.
+// IDs are bare (no "topup_" prefix) so checkout routes can construct
+// orderRef = `topup_${t.id}` without doubling up.
 export const TOPUP_PACKS: TopupPack[] = [
-  { id: 'topup_small', credits: 250, priceUsd: 5, paddlePriceId: process.env.PADDLE_PRICE_TOPUP_SMALL },           // $0.020/cr
-  { id: 'topup_medium', credits: 1200, priceUsd: 20, bonus: '送 200', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_MEDIUM },  // $0.0167/cr eff
-  { id: 'topup_large', credits: 3500, priceUsd: 50, bonus: '送 1000', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_LARGE }, // $0.0143/cr eff
-  { id: 'topup_xl', credits: 8000, priceUsd: 100, bonus: '送 3000', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_XL },   // $0.0125/cr eff
+  { id: 'small', credits: 250, priceUsd: 5, paddlePriceId: process.env.PADDLE_PRICE_TOPUP_SMALL },           // $0.020/cr
+  { id: 'medium', credits: 1200, priceUsd: 20, bonus: '送 200', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_MEDIUM },  // $0.0167/cr eff
+  { id: 'large', credits: 3500, priceUsd: 50, bonus: '送 1000', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_LARGE }, // $0.0143/cr eff
+  { id: 'xl', credits: 8000, priceUsd: 100, bonus: '送 3000', paddlePriceId: process.env.PADDLE_PRICE_TOPUP_XL },   // $0.0125/cr eff
 ];
 
 export function getPlan(id: string): SubscriptionPlan | undefined {
