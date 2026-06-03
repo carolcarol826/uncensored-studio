@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     description: 'AI Creative Studio for image & video generation.',
   },
   robots: { index: true, follow: true },
-  icons: { icon: '/favicon.svg' },
+  // icon is auto-generated from app/icon.svg
 };
 
 export default function RootLayout({
