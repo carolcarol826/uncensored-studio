@@ -26,6 +26,7 @@ const GOOGLE_CONFIGURED =
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   trustHost: true,
+  debug: process.env.AUTH_DEBUG === 'true',
   // Prisma adapter is required for Email/Resend provider (stores VerificationTokens).
   // In SKIP_DB mode (local dev) we omit it and rely on JWT-only session.
   adapter: isDbSkipped ? undefined : PrismaAdapter(prisma),
@@ -93,9 +94,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   // PrismaAdapter trying to create the same user from an OAuth callback.
   events: {
     async createUser({ user }) {
+      console.log('[auth.events.createUser]', { id: user.id, email: user.email });
       if (isDbSkipped || !user.id) return;
-      // Grant signup bonus credits + ledger row. PrismaAdapter already
-      // created the User row; we just add the signup_bonus tx.
       try {
         const existing = await prisma.creditTx.findFirst({
           where: { userId: user.id, kind: 'SIGNUP_BONUS' },
@@ -110,7 +110,23 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
             note: 'Welcome bonus',
           },
         });
-      } catch {/* ignore — bonus is best-effort */}
+      } catch (err: any) {
+        console.error('[auth.events.createUser] bonus failed', err?.message);
+      }
+    },
+    async signIn({ user, account, isNewUser }) {
+      console.log('[auth.events.signIn]', {
+        email: user.email,
+        provider: account?.provider,
+        isNewUser,
+      });
+    },
+    async linkAccount({ user, account }) {
+      console.log('[auth.events.linkAccount]', {
+        email: user.email,
+        provider: account.provider,
+        providerAccountId: account.providerAccountId?.slice(0, 8) + '...',
+      });
     },
   },
 
@@ -128,25 +144,43 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       return true;
     },
 
-    async jwt({ token, user }) {
-      // On sign-in, copy user.id into the token
-      if (user?.email) {
-        const dbUser = await getUserByEmail(user.email);
-        if (dbUser) token.userId = dbUser.id;
+    async jwt({ token, user, account, profile }) {
+      try {
+        // On sign-in, copy user.id into the token
+        if (user?.email) {
+          const dbUser = await getUserByEmail(user.email);
+          if (dbUser) token.userId = dbUser.id;
+          else {
+            console.error('[auth.jwt] user.email present but no DB user found', {
+              email: user.email,
+              account: account?.provider,
+              profile: !!profile,
+            });
+          }
+        }
+        return token;
+      } catch (err: any) {
+        console.error('[auth.jwt] failed', err?.message, err?.code, err?.stack?.split('\n').slice(0, 5).join(' | '));
+        // Don't throw — surfacing here as Configuration error blocks login.
+        return token;
       }
-      return token;
     },
 
     async session({ session, token }) {
-      const userId = (token.userId as string | undefined) ?? null;
-      if (!userId) return session;
-      const dbUser = await getUserByEmail(session.user.email);
-      if (dbUser) {
-        session.user.id = dbUser.id;
-        session.user.credits = dbUser.credits;
-        session.user.ageVerifiedAt = dbUser.ageVerifiedAt;
+      try {
+        const userId = (token.userId as string | undefined) ?? null;
+        if (!userId) return session;
+        const dbUser = await getUserByEmail(session.user.email);
+        if (dbUser) {
+          session.user.id = dbUser.id;
+          session.user.credits = dbUser.credits;
+          session.user.ageVerifiedAt = dbUser.ageVerifiedAt;
+        }
+        return session;
+      } catch (err: any) {
+        console.error('[auth.session] failed', err?.message, err?.code);
+        return session;
       }
-      return session;
     },
   },
 
