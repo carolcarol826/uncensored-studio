@@ -89,10 +89,37 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       : []),
   ],
 
+  // events run AFTER the adapter has created the row, so we don't race with
+  // PrismaAdapter trying to create the same user from an OAuth callback.
+  events: {
+    async createUser({ user }) {
+      if (isDbSkipped || !user.id) return;
+      // Grant signup bonus credits + ledger row. PrismaAdapter already
+      // created the User row; we just add the signup_bonus tx.
+      try {
+        const existing = await prisma.creditTx.findFirst({
+          where: { userId: user.id, kind: 'SIGNUP_BONUS' },
+        });
+        if (existing) return;
+        await prisma.creditTx.create({
+          data: {
+            userId: user.id,
+            kind: 'SIGNUP_BONUS',
+            delta: 20,
+            balanceAfter: 20,
+            note: 'Welcome bonus',
+          },
+        });
+      } catch {/* ignore — bonus is best-effort */}
+    },
+  },
+
   callbacks: {
+    // In SKIP_DB (mock) mode there's no adapter, so we still need to
+    // create the user manually. With a real adapter, return true and let
+    // PrismaAdapter handle it (events.createUser awards the bonus).
     async signIn({ user }) {
-      // Auto-create user on first sign-in
-      if (user.email) {
+      if (isDbSkipped && user.email) {
         const existing = await getUserByEmail(user.email);
         if (!existing) {
           await createUser({ email: user.email, name: user.name ?? undefined });
