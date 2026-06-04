@@ -2,6 +2,8 @@ export const dynamic = 'force-static';
 
 const PUBLIC_PATHS = [
   '/',
+  '/about',
+  '/contact',
   '/login',
   '/pricing',
   '/legal',

@@ -103,6 +103,10 @@ export default function Home() {
         <footer className="text-center text-xs text-fg-subtle space-y-2 pt-4 border-t border-bg-border">
           <p>本站为 18+ 内容平台，使用前请确认所在地区合法性</p>
           <p>
+            <Link href="/about" className="hover:text-fg">关于</Link>
+            {' · '}
+            <Link href="/contact" className="hover:text-fg">联系</Link>
+            {' · '}
             <Link href="/legal/terms" className="hover:text-fg">服务条款</Link>
             {' · '}
             <Link href="/legal/privacy" className="hover:text-fg">隐私政策</Link>

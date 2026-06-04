@@ -29,6 +29,26 @@ export const metadata: Metadata = {
   // icon is auto-generated from app/icon.svg
 };
 
+// JSON-LD Organization schema — gives Google a structured signal about
+// who runs this site. Helps the "deceptive site" appeal because reviewers
+// can confirm legit contact info / sameAs links automatically.
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'MyHim Studio',
+  url: 'https://myhim.love',
+  logo: 'https://myhim.love/icon.svg',
+  description:
+    'Independent AI creative tool for image and video generation, built on open-source models (Stable Diffusion XL, Wan 2.2). For creators 18+.',
+  email: 'support@myhim.love',
+  contactPoint: {
+    '@type': 'ContactPoint',
+    contactType: 'customer support',
+    email: 'support@myhim.love',
+    availableLanguage: ['English', 'Chinese'],
+  },
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -36,6 +56,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" className="dark" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+      </head>
       <body
         className="min-h-screen bg-bg text-fg antialiased"
         suppressHydrationWarning
