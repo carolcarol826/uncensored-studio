@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
+import { isDbSkipped, prisma } from '@/lib/db';
+import { listGenerations } from '@/lib/store';
+import { getPublicUrl } from '@/lib/storage';
 import { readSettings } from '@/lib/settings';
 import { buildViewUrl } from '@/lib/comfy';
 
@@ -8,20 +12,57 @@ interface GalleryItem {
   url: string;
   type: 'image' | 'video';
   filename: string;
-  subfolder: string;
+  subfolder?: string;
   promptId: string;
   createdAt: number;
   prompt?: string;
   seed?: number;
+  generationId?: string;
 }
 
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const VIDEO_EXT = new Set(['.mp4', '.webm', '.gif', '.mov']);
 
 export async function GET() {
-  const { comfyUrl } = await readSettings();
+  const session = await auth();
+  // === Production path: pull user's Generations + OutputFiles from DB ===
+  if (!isDbSkipped && session?.user?.id) {
+    const userId = session.user.id;
+    try {
+      const gens = await prisma.generation.findMany({
+        where: { userId, status: 'COMPLETED' },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+        include: { outputs: true },
+      });
 
-  // First: pull from ComfyUI's in-memory history (gives prompt + seed metadata)
+      const items: GalleryItem[] = [];
+      for (const g of gens) {
+        for (const o of g.outputs) {
+          items.push({
+            url: await getPublicUrl(o.key),
+            type: (o.kind === 'video' ? 'video' : 'image') as 'image' | 'video',
+            filename: o.key.split('/').pop() ?? 'output',
+            promptId: g.promptIdRemote ?? g.id,
+            createdAt: (g.completedAt ?? g.createdAt).getTime(),
+            prompt: g.prompt,
+            seed: Number(g.seed),
+            generationId: g.id,
+          });
+        }
+      }
+      return NextResponse.json({ items });
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: `Gallery load failed: ${err?.message ?? err}` },
+        { status: 500 }
+      );
+    }
+  }
+
+  // === Dev path: read local ComfyUI history + disk for unauthenticated / SKIP_DB ===
+  // (kept for SKIP_DB=true local dev where there's no Postgres / R2)
+  const { comfyUrl } = await readSettings();
   const itemsByKey = new Map<string, GalleryItem>();
 
   try {
@@ -46,7 +87,7 @@ export async function GET() {
           undefined;
 
         for (const out of Object.values<any>(outputs)) {
-          for (const f of (out?.images ?? [])) {
+          for (const f of out?.images ?? []) {
             const key = `${f.subfolder}/${f.filename}`;
             itemsByKey.set(key, {
               url: buildViewUrl(comfyUrl, f),
@@ -59,7 +100,7 @@ export async function GET() {
               seed,
             });
           }
-          for (const f of (out?.gifs ?? [])) {
+          for (const f of out?.gifs ?? []) {
             const key = `${f.subfolder}/${f.filename}`;
             itemsByKey.set(key, {
               url: buildViewUrl(comfyUrl, f),
@@ -76,34 +117,26 @@ export async function GET() {
       }
     }
   } catch {
-    // ignore — fall back to disk scan
+    // ignore
   }
 
-  // Second: scan disk for files not in history (history is wiped on ComfyUI restart)
-  // Find the ComfyUI output dir by asking ComfyUI's user_data endpoint, or use convention
+  // Local disk fallback for development
   try {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
-
-    // Try to discover output dir via ComfyUI; fall back to portable path convention
     const candidatePaths = [
       'E:/AI-Tools/ComfyUI/ComfyUI_windows_portable/ComfyUI/output',
       path.join(process.env.USERPROFILE ?? '', 'ComfyUI/ComfyUI_windows_portable/ComfyUI/output'),
     ];
-
     for (const root of candidatePaths) {
       try {
         const stat = await fs.stat(root);
         if (!stat.isDirectory()) continue;
-
         const subfolders = await fs.readdir(root, { withFileTypes: true });
         const scanDirs = [
           { name: '', dir: root },
-          ...subfolders
-            .filter((d) => d.isDirectory())
-            .map((d) => ({ name: d.name, dir: path.join(root, d.name) })),
+          ...subfolders.filter((d) => d.isDirectory()).map((d) => ({ name: d.name, dir: path.join(root, d.name) })),
         ];
-
         for (const { name: subfolder, dir } of scanDirs) {
           let files: import('node:fs').Dirent[];
           try {
@@ -118,15 +151,11 @@ export async function GET() {
             const isVid = VIDEO_EXT.has(ext);
             if (!isImg && !isVid) continue;
             const key = `${subfolder}/${f.name}`;
-            if (itemsByKey.has(key)) continue; // history wins
+            if (itemsByKey.has(key)) continue;
             const full = path.join(dir, f.name);
             const fstat = await fs.stat(full);
             itemsByKey.set(key, {
-              url: buildViewUrl(comfyUrl, {
-                filename: f.name,
-                subfolder,
-                type: 'output',
-              }),
+              url: buildViewUrl(comfyUrl, { filename: f.name, subfolder, type: 'output' }),
               type: isImg ? 'image' : 'video',
               filename: f.name,
               subfolder,
@@ -135,7 +164,7 @@ export async function GET() {
             });
           }
         }
-        break; // first valid root
+        break;
       } catch {
         continue;
       }
@@ -144,9 +173,8 @@ export async function GET() {
     // ignore
   }
 
-  const items = Array.from(itemsByKey.values()).sort((a, b) => {
-    return (b.createdAt || 0) - (a.createdAt || 0);
-  });
-
+  const items = Array.from(itemsByKey.values()).sort(
+    (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+  );
   return NextResponse.json({ items });
 }

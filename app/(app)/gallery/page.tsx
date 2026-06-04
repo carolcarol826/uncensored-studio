@@ -40,9 +40,9 @@ export default function GalleryPage() {
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">本地图库</h1>
+          <h1 className="text-2xl font-bold">我的作品</h1>
           <p className="text-sm text-fg-muted mt-1">
-            读取 ComfyUI 的历史输出（最多 200 条）
+            最近 200 条生成记录
           </p>
         </div>
         <button onClick={load} className="btn-secondary">
