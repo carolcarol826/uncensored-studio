@@ -44,11 +44,19 @@ export const WORKFLOWS: WorkflowMeta[] = [
   },
   {
     id: 'wan22-ti2v-5b',
-    name: 'Wan 2.2 文生视频 (5B)',
+    name: 'Wan 2.2 文生视频 (5B, GGUF Q4)',
     category: 'text2video',
-    description: 'Wan 2.2 TI2V-5B，8GB VRAM 友好',
+    description: 'Wan 2.2 TI2V-5B Q4 量化，8GB VRAM 友好（本地开发）',
     vramHint: '8-12 GB VRAM',
     requiredCustomNodes: ['ComfyUI-WanVideoWrapper', 'ComfyUI-VideoHelperSuite'],
+  },
+  {
+    id: 'wan22-ti2v-5b-fp16',
+    name: 'Wan 2.2 文生视频 (5B fp16, 生产)',
+    category: 'text2video',
+    description: 'Wan 2.2 TI2V-5B native fp16 — 生产端 RunPod 用此工作流',
+    vramHint: '24 GB VRAM',
+    requiredCustomNodes: ['ComfyUI-VideoHelperSuite'],
   },
   {
     id: 'pulid-sdxl-t2i',

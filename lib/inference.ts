@@ -188,11 +188,14 @@ export async function status(jobId: string): Promise<InferenceStatus> {
   return provider === 'runpod' ? runpodStatus(jobId) : localStatus(jobId);
 }
 
-// Models known to be available on the production RunPod endpoint.
-// First entry is the default. Update when adding models to the Network Volume.
+// Models known to be available on the production RunPod endpoints.
+// First entry per kind is the default. Update when adding to Network Volume.
 const RUNPOD_CHECKPOINTS = [
   'noobai-xl-v1.1.safetensors',  // NSFW anime SOTA, on /runpod-volume
   'sd_xl_base_1.0.safetensors',  // SDXL base, baked into worker image
+];
+const RUNPOD_VIDEO_UNETS = [
+  'wan2.2_ti2v_5B_fp16.safetensors',  // Wan 2.2 TI2V-5B fp16, on /runpod-volume
 ];
 
 export async function health() {
@@ -203,7 +206,9 @@ export async function health() {
       provider: 'runpod' as const,
       online: !!(endpoint && key),
       endpoint: endpoint ?? null,
+      videoEndpoint: process.env.RUNPOD_ENDPOINT_ID_VIDEO ?? null,
       checkpoints: RUNPOD_CHECKPOINTS,
+      videoUnets: RUNPOD_VIDEO_UNETS,
     };
   }
   const { getHealth, listCheckpoints } = await import('./comfy');

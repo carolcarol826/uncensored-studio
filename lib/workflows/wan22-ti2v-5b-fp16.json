@@ -1,7 +1,7 @@
 {
   "_comment": "Wan 2.2 TI2V-5B fp16 (native ComfyUI nodes, no GGUF). Models loaded from /runpod-volume/models/{diffusion_models,vae,text_encoders}/. Requires: ComfyUI 0.3+ with native Wan support + ComfyUI-VideoHelperSuite (for VHS_VideoCombine).",
   "1": {
-    "inputs": { "unet_name": "__CKPT__", "weight_dtype": "fp16" },
+    "inputs": { "unet_name": "__CKPT__", "weight_dtype": "default" },
     "class_type": "UNETLoader",
     "_meta": { "title": "Wan UNET" }
   },
