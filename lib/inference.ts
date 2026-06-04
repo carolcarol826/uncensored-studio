@@ -88,8 +88,26 @@ async function localStatus(jobId: string): Promise<InferenceStatus> {
 //     resp { id, status: IN_QUEUE|IN_PROGRESS|COMPLETED|FAILED|CANCELLED,
 //            output: { images: [{filename, type: "image"|"video", data: base64 }] } }
 
-async function runpodSubmit(workflow: Record<string, unknown>): Promise<SubmitResult> {
-  const endpoint = required('RUNPOD_ENDPOINT_ID');
+// Two endpoints: image (SDXL, fast) + video (Wan 2.2, big GPU).
+// Image is the default; video is opt-in via the `kind` param.
+// JobIds are namespaced: `i:<rawid>` for image, `v:<rawid>` for video,
+// so status() can route back to the right endpoint without extra context.
+type EndpointKind = 'image' | 'video';
+function endpointFor(kind: EndpointKind): string {
+  if (kind === 'video') {
+    return (
+      process.env.RUNPOD_ENDPOINT_ID_VIDEO ||
+      required('RUNPOD_ENDPOINT_ID') // fallback if video endpoint not yet created
+    );
+  }
+  return required('RUNPOD_ENDPOINT_ID');
+}
+
+async function runpodSubmit(
+  workflow: Record<string, unknown>,
+  kind: EndpointKind = 'image'
+): Promise<SubmitResult> {
+  const endpoint = endpointFor(kind);
   const key = required('RUNPOD_API_KEY');
   const res = await fetch(`https://api.runpod.ai/v2/${endpoint}/run`, {
     method: 'POST',
@@ -104,13 +122,19 @@ async function runpodSubmit(workflow: Record<string, unknown>): Promise<SubmitRe
     throw new Error(`RunPod /run ${res.status}: ${text}`);
   }
   const data = (await res.json()) as { id: string };
-  return { jobId: data.id };
+  // Prefix so status() can route to the right endpoint
+  return { jobId: `${kind === 'video' ? 'v' : 'i'}:${data.id}` };
 }
 
 async function runpodStatus(jobId: string): Promise<InferenceStatus> {
-  const endpoint = required('RUNPOD_ENDPOINT_ID');
+  // Strip routing prefix; default to image endpoint for backwards compat.
+  let kind: EndpointKind = 'image';
+  let rawId = jobId;
+  if (jobId.startsWith('v:')) { kind = 'video'; rawId = jobId.slice(2); }
+  else if (jobId.startsWith('i:')) { kind = 'image'; rawId = jobId.slice(2); }
+  const endpoint = endpointFor(kind);
   const key = required('RUNPOD_API_KEY');
-  const res = await fetch(`https://api.runpod.ai/v2/${endpoint}/status/${jobId}`, {
+  const res = await fetch(`https://api.runpod.ai/v2/${endpoint}/status/${rawId}`, {
     headers: { Authorization: `Bearer ${key}` },
     cache: 'no-store',
   });
@@ -147,8 +171,17 @@ async function runpodStatus(jobId: string): Promise<InferenceStatus> {
 
 // ===================== Dispatcher =====================
 
-export async function submit(workflow: Record<string, unknown>): Promise<SubmitResult> {
-  return provider === 'runpod' ? runpodSubmit(workflow) : localSubmit(workflow);
+export interface SubmitOpts {
+  /** image (default — fast SDXL endpoint) or video (Wan 2.2 endpoint) */
+  kind?: EndpointKind;
+}
+
+export async function submit(
+  workflow: Record<string, unknown>,
+  opts: SubmitOpts = {}
+): Promise<SubmitResult> {
+  if (provider === 'runpod') return runpodSubmit(workflow, opts.kind ?? 'image');
+  return localSubmit(workflow);
 }
 
 export async function status(jobId: string): Promise<InferenceStatus> {

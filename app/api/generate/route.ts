@@ -191,7 +191,8 @@ export async function POST(req: NextRequest) {
   // Submit to inference backend
   let jobId: string;
   try {
-    const r = await submit(workflow!);
+    const isVideo = body.mode === 'img2video' || body.mode === 'text2video';
+    const r = await submit(workflow!, { kind: isVideo ? 'video' : 'image' });
     jobId = r.jobId;
   } catch (err: any) {
     // refund on submission failure
