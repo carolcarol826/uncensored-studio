@@ -10,7 +10,7 @@
     "app/api/cron/cleanup-r2/route.ts": { "maxDuration": 300 }
   },
   "crons": [
-    { "path": "/api/cron/runpod-balance", "schedule": "0 */6 * * *" },
+    { "path": "/api/cron/runpod-balance", "schedule": "0 12 * * *" },
     { "path": "/api/cron/cleanup-r2", "schedule": "0 4 * * *" }
   ]
 }
