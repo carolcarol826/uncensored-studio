@@ -12,5 +12,8 @@ export async function GET() {
       nowpayments: nowpaymentsEnabled,
       paddle: paddleEnabled,
     },
+    auth: {
+      google: !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
+    },
   });
 }

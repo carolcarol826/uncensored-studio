@@ -3,6 +3,7 @@
 
 import NextAuth, { type DefaultSession } from 'next-auth';
 import Resend from 'next-auth/providers/resend';
+import Google from 'next-auth/providers/google';
 import { Resend as ResendClient } from 'resend';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { createUser, getUserByEmail } from './lib/store';
@@ -20,6 +21,8 @@ declare module 'next-auth' {
 }
 
 const PRINT_LINKS = process.env.AUTH_DEV_PRINT_LINKS === 'true' || !process.env.RESEND_API_KEY;
+const GOOGLE_CONFIGURED =
+  !!process.env.AUTH_GOOGLE_ID && !!process.env.AUTH_GOOGLE_SECRET;
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -71,6 +74,19 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         if (error) throw new Error(error.message);
       },
     }),
+    // Google OAuth — enabled only when both env vars are set.
+    // Without these env vars the provider isn't registered, so /api/auth/signin
+    // won't list Google. We rely on JWT session strategy so Google login
+    // works on the same session as Resend magic-links.
+    ...(GOOGLE_CONFIGURED
+      ? [
+          Google({
+            clientId: process.env.AUTH_GOOGLE_ID!,
+            clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
   ],
 
   callbacks: {
