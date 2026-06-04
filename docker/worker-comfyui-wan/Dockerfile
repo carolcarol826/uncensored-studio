@@ -25,6 +25,11 @@ RUN cd /comfyui/custom_nodes && \
     cd ComfyUI-WanVideoWrapper && \
     pip install --no-cache-dir -r requirements.txt
 
+# Patch /handler.py so VHS_VideoCombine "gifs" outputs are also returned to the
+# caller (upstream worker-comfyui drops every key except "images").
+COPY patch-handler.py /tmp/patch-handler.py
+RUN python3 /tmp/patch-handler.py && rm /tmp/patch-handler.py
+
 # Sanity: list installed nodes
 RUN ls -la /comfyui/custom_nodes/ && \
     echo "Wan worker ready"
