@@ -155,6 +155,13 @@ export async function status(jobId: string): Promise<InferenceStatus> {
   return provider === 'runpod' ? runpodStatus(jobId) : localStatus(jobId);
 }
 
+// Models known to be available on the production RunPod endpoint.
+// First entry is the default. Update when adding models to the Network Volume.
+const RUNPOD_CHECKPOINTS = [
+  'noobai-xl-v1.1.safetensors',  // NSFW anime SOTA, on /runpod-volume
+  'sd_xl_base_1.0.safetensors',  // SDXL base, baked into worker image
+];
+
 export async function health() {
   if (provider === 'runpod') {
     const endpoint = process.env.RUNPOD_ENDPOINT_ID;
@@ -163,6 +170,7 @@ export async function health() {
       provider: 'runpod' as const,
       online: !!(endpoint && key),
       endpoint: endpoint ?? null,
+      checkpoints: RUNPOD_CHECKPOINTS,
     };
   }
   const { getHealth, listCheckpoints } = await import('./comfy');
