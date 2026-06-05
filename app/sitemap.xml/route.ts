@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   '/login',
   '/pricing',
   '/controlnet',
+  '/inpaint',
   '/legal',
   '/legal/terms',
   '/legal/privacy',

@@ -86,6 +86,7 @@ enum GenerationKind {
   TEXT2VIDEO
   CHARACTER
   CONTROLNET
+  INPAINT
 }
 
 enum GenerationStatus {

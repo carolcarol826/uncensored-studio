@@ -6,7 +6,7 @@ const WORKFLOW_DIR = path.join(process.cwd(), 'lib', 'workflows');
 export interface WorkflowMeta {
   id: string;
   name: string;
-  category: 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet';
+  category: 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet' | 'inpaint';
   description: string;
   vramHint: string;
   requiredCustomNodes?: string[];
@@ -81,6 +81,13 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: '上传参考图（人物 / 场景）→ AI 复刻姿势、深度或边缘构图',
     vramHint: '8-10 GB VRAM · SDXL + ControlNet',
     requiredCustomNodes: ['ComfyUI-Advanced-ControlNet', 'ComfyUI_controlnet_aux'],
+  },
+  {
+    id: 'sdxl-inpaint',
+    name: 'SDXL 局部重绘 (换装 / 改妆)',
+    category: 'inpaint',
+    description: '上传图 + 涂蒙版 → AI 只重画涂抹区域（换衣服、改发型、修瑕疵）',
+    vramHint: '6-8 GB VRAM',
   },
 ];
 
@@ -289,6 +296,49 @@ export async function buildControlNetWorkflow(params: ControlNetParams): Promise
     if (n.class_type === 'AIO_Preprocessor') {
       // match latent dimensions so preprocessed output is correctly sized
       n.inputs.resolution = Math.max(params.width, params.height);
+    }
+  }
+
+  return result;
+}
+
+export interface InpaintParams {
+  workflowId: string;
+  checkpoint: string;
+  positive: string;
+  negative: string;
+  inputImage: string;   // reference image filename uploaded to /api/upload
+  maskImage: string;    // mask PNG (white=repaint, black=keep) filename uploaded to /api/upload
+  steps: number;
+  cfg: number;
+  seed: number;
+  denoise?: number;     // 1.0 = fully replace mask area; <1 = blend
+  growMaskBy?: number;  // pixels to expand mask edge — smooths seam (default 6)
+}
+
+export async function buildInpaintWorkflow(params: InpaintParams): Promise<Record<string, unknown>> {
+  const wf = await loadWorkflow(params.workflowId);
+  const json = JSON.stringify(wf)
+    .replace(/__CKPT__/g, params.checkpoint)
+    .replace(/__POSITIVE__/g, escapeForJson(params.positive))
+    .replace(/__NEGATIVE__/g, escapeForJson(params.negative))
+    .replace(/__INPUT_IMAGE__/g, escapeForJson(params.inputImage))
+    .replace(/__MASK_IMAGE__/g, escapeForJson(params.maskImage));
+
+  const result = JSON.parse(json) as Record<string, any>;
+
+  for (const node of Object.values(result)) {
+    if (!node || typeof node !== 'object') continue;
+    const n = node as { class_type?: string; inputs?: Record<string, any> };
+    if (!n.inputs) continue;
+    if (n.class_type === 'KSampler') {
+      n.inputs.steps = params.steps;
+      n.inputs.cfg = params.cfg;
+      n.inputs.seed = params.seed;
+      n.inputs.denoise = params.denoise ?? 1.0;
+    }
+    if (n.class_type === 'VAEEncodeForInpaint' && params.growMaskBy != null) {
+      n.inputs.grow_mask_by = params.growMaskBy;
     }
   }
 

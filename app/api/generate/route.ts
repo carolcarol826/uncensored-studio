@@ -6,6 +6,7 @@ import {
   buildVideoWorkflow,
   buildCharacterWorkflow,
   buildControlNetWorkflow,
+  buildInpaintWorkflow,
   type ControlType,
 } from '@/lib/workflows';
 import { submit } from '@/lib/inference';
@@ -37,6 +38,8 @@ interface Body {
   pulidWeight?: number;
   controlType?: ControlType;
   controlStrength?: number;
+  maskImage?: string;
+  growMaskBy?: number;
 }
 
 const KIND_MAP = {
@@ -46,6 +49,7 @@ const KIND_MAP = {
   text2video: 'TEXT2VIDEO',
   character: 'CHARACTER',
   controlnet: 'CONTROLNET',
+  inpaint: 'INPAINT',
 } as const;
 
 export async function POST(req: NextRequest) {
@@ -193,6 +197,27 @@ export async function POST(req: NextRequest) {
           cfg: body.cfg ?? 7,
           seed,
           batchSize: body.batchSize ?? 1,
+        });
+        break;
+      case 'inpaint':
+        if (!body.inputImage) {
+          return NextResponse.json({ error: '请上传原图' }, { status: 400 });
+        }
+        if (!body.maskImage) {
+          return NextResponse.json({ error: '请涂抹要重画的区域（蒙版）' }, { status: 400 });
+        }
+        workflow = await buildInpaintWorkflow({
+          workflowId: body.workflowId,
+          checkpoint: body.checkpoint,
+          positive: body.positive,
+          negative: body.negative ?? '',
+          inputImage: body.inputImage,
+          maskImage: body.maskImage,
+          steps: body.steps ?? 25,
+          cfg: body.cfg ?? 7,
+          seed,
+          denoise: body.denoise ?? 1.0,
+          growMaskBy: body.growMaskBy,
         });
         break;
     }

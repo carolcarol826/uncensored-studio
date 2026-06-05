@@ -17,6 +17,7 @@ export const CREDIT_COSTS = {
   text2video: 12,
   character: 3,
   controlnet: 2,  // ~2x compute: preprocessor + controlnet forward pass
+  inpaint: 1,     // same compute as img2img — repaints only masked region
 } as const;
 
 export type GenerationMode = keyof typeof CREDIT_COSTS;

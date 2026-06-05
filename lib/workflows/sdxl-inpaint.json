@@ -1,0 +1,69 @@
+{
+  "_comment": "SDXL inpainting. Uses ComfyUI's built-in VAEEncodeForInpaint — no custom nodes required. The mask image must be a PNG where WHITE pixels mark areas to repaint and BLACK pixels mark areas to keep. Placeholders: __CKPT__, __POSITIVE__, __NEGATIVE__, __INPUT_IMAGE__, __MASK_IMAGE__.",
+  "4": {
+    "inputs": { "ckpt_name": "__CKPT__" },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Checkpoint" }
+  },
+  "6": {
+    "inputs": { "text": "__POSITIVE__", "clip": ["4", 1] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive" }
+  },
+  "7": {
+    "inputs": { "text": "__NEGATIVE__", "clip": ["4", 1] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative" }
+  },
+  "10": {
+    "inputs": { "image": "__INPUT_IMAGE__", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "Reference Image" }
+  },
+  "11": {
+    "inputs": { "image": "__MASK_IMAGE__", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "Mask Image" }
+  },
+  "12": {
+    "inputs": { "image": ["11", 0], "channel": "red" },
+    "class_type": "ImageToMask",
+    "_meta": { "title": "Image → Mask (red channel)" }
+  },
+  "13": {
+    "inputs": {
+      "pixels": ["10", 0],
+      "vae": ["4", 2],
+      "mask": ["12", 0],
+      "grow_mask_by": 6
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": { "title": "VAE Encode (Inpaint)" }
+  },
+  "3": {
+    "inputs": {
+      "seed": 0,
+      "steps": 25,
+      "cfg": 7,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0,
+      "model": ["4", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["13", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "Sampler" }
+  },
+  "8": {
+    "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "VAE Decode" }
+  },
+  "9": {
+    "inputs": { "filename_prefix": "myhim-inpaint", "images": ["8", 0] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save" }
+  }
+}
