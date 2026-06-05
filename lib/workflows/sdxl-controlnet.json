@@ -1,0 +1,78 @@
+{
+  "_comment": "SDXL + ControlNet (OpenPose / Depth / Canny). Parameterized via __CONTROL_TYPE__ (one of: openpose / depth / canny) and __CONTROL_MODEL__ (the actual controlnet safetensors filename). Requires custom nodes: ComfyUI-Advanced-ControlNet, ComfyUI_controlnet_aux. ControlNet models live at /runpod-volume/models/controlnet/. Preprocessor weights auto-download to /comfyui/custom_nodes/ComfyUI_controlnet_aux/ckpts on first run.",
+  "4": {
+    "inputs": { "ckpt_name": "__CKPT__" },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Checkpoint" }
+  },
+  "5": {
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "Latent" }
+  },
+  "6": {
+    "inputs": { "text": "__POSITIVE__", "clip": ["4", 1] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive" }
+  },
+  "7": {
+    "inputs": { "text": "__NEGATIVE__", "clip": ["4", 1] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative" }
+  },
+  "10": {
+    "inputs": { "image": "__INPUT_IMAGE__", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "Reference Image" }
+  },
+  "11": {
+    "inputs": {
+      "preprocessor": "__PREPROCESSOR__",
+      "resolution": 1024,
+      "image": ["10", 0]
+    },
+    "class_type": "AIO_Preprocessor",
+    "_meta": { "title": "Preprocess (pose/depth/canny)" }
+  },
+  "12": {
+    "inputs": { "control_net_name": "__CONTROL_MODEL__" },
+    "class_type": "ControlNetLoader",
+    "_meta": { "title": "Load ControlNet" }
+  },
+  "13": {
+    "inputs": {
+      "strength": 0.8,
+      "conditioning": ["6", 0],
+      "control_net": ["12", 0],
+      "image": ["11", 0]
+    },
+    "class_type": "ControlNetApply",
+    "_meta": { "title": "Apply ControlNet" }
+  },
+  "3": {
+    "inputs": {
+      "seed": 0,
+      "steps": 25,
+      "cfg": 7,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0,
+      "model": ["4", 0],
+      "positive": ["13", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "Sampler" }
+  },
+  "8": {
+    "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "VAE Decode" }
+  },
+  "9": {
+    "inputs": { "filename_prefix": "myhim-controlnet", "images": ["8", 0] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save" }
+  }
+}

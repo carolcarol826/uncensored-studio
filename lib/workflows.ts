@@ -6,7 +6,7 @@ const WORKFLOW_DIR = path.join(process.cwd(), 'lib', 'workflows');
 export interface WorkflowMeta {
   id: string;
   name: string;
-  category: 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character';
+  category: 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet';
   description: string;
   vramHint: string;
   requiredCustomNodes?: string[];
@@ -73,6 +73,14 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: 'Flux schnell GGUF Q4 + PuLID，质量更高但更慢',
     vramHint: '8 GB VRAM（紧凑，需 GGUF Q4）',
     requiredCustomNodes: ['ComfyUI-PuLID-Flux-Enhanced', 'ComfyUI-GGUF'],
+  },
+  {
+    id: 'sdxl-controlnet',
+    name: 'SDXL 姿势 / 构图控制 (ControlNet)',
+    category: 'controlnet',
+    description: '上传参考图（人物 / 场景）→ AI 复刻姿势、深度或边缘构图',
+    vramHint: '8-10 GB VRAM · SDXL + ControlNet',
+    requiredCustomNodes: ['ComfyUI-Advanced-ControlNet', 'ComfyUI_controlnet_aux'],
   },
 ];
 
@@ -205,6 +213,82 @@ export async function buildCharacterWorkflow(params: CharacterParams): Promise<R
     }
     if ((n.class_type === 'ApplyPulid' || n.class_type === 'ApplyPulidFlux') && params.pulidWeight != null) {
       n.inputs.weight = params.pulidWeight;
+    }
+  }
+
+  return result;
+}
+
+export type ControlType = 'openpose' | 'depth' | 'canny';
+
+// Map our public control type → (preprocessor node name, controlnet model file)
+const CONTROLNET_MAP: Record<ControlType, { preprocessor: string; model: string }> = {
+  openpose: {
+    preprocessor: 'OpenposePreprocessor',
+    model: 'controlnet-openpose-sdxl.safetensors',
+  },
+  depth: {
+    preprocessor: 'DepthAnythingPreprocessor',
+    model: 'controlnet-depth-sdxl.safetensors',
+  },
+  canny: {
+    preprocessor: 'CannyEdgePreprocessor',
+    model: 'controlnet-canny-sdxl.safetensors',
+  },
+};
+
+export interface ControlNetParams {
+  workflowId: string;
+  checkpoint: string;
+  positive: string;
+  negative: string;
+  inputImage: string;
+  controlType: ControlType;
+  controlStrength?: number;  // 0-1, default 0.8
+  width: number;
+  height: number;
+  steps: number;
+  cfg: number;
+  seed: number;
+  batchSize: number;
+}
+
+export async function buildControlNetWorkflow(params: ControlNetParams): Promise<Record<string, unknown>> {
+  const mapping = CONTROLNET_MAP[params.controlType];
+  if (!mapping) throw new Error(`Unknown controlType: ${params.controlType}`);
+
+  const wf = await loadWorkflow(params.workflowId);
+  const json = JSON.stringify(wf)
+    .replace(/__CKPT__/g, params.checkpoint)
+    .replace(/__POSITIVE__/g, escapeForJson(params.positive))
+    .replace(/__NEGATIVE__/g, escapeForJson(params.negative))
+    .replace(/__INPUT_IMAGE__/g, escapeForJson(params.inputImage))
+    .replace(/__PREPROCESSOR__/g, mapping.preprocessor)
+    .replace(/__CONTROL_MODEL__/g, mapping.model);
+
+  const result = JSON.parse(json) as Record<string, any>;
+  const strength = params.controlStrength ?? 0.8;
+
+  for (const node of Object.values(result)) {
+    if (!node || typeof node !== 'object') continue;
+    const n = node as { class_type?: string; inputs?: Record<string, any> };
+    if (!n.inputs) continue;
+    if (n.class_type === 'KSampler' || n.class_type === 'KSamplerAdvanced') {
+      n.inputs.steps = params.steps;
+      n.inputs.cfg = params.cfg;
+      n.inputs.seed = params.seed;
+    }
+    if (n.class_type === 'EmptyLatentImage') {
+      n.inputs.width = params.width;
+      n.inputs.height = params.height;
+      n.inputs.batch_size = params.batchSize;
+    }
+    if (n.class_type === 'ControlNetApply' || n.class_type === 'ControlNetApplyAdvanced') {
+      n.inputs.strength = strength;
+    }
+    if (n.class_type === 'AIO_Preprocessor') {
+      // match latent dimensions so preprocessed output is correctly sized
+      n.inputs.resolution = Math.max(params.width, params.height);
     }
   }
 

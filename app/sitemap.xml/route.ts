@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   '/contact',
   '/login',
   '/pricing',
+  '/controlnet',
   '/legal',
   '/legal/terms',
   '/legal/privacy',

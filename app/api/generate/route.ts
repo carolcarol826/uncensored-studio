@@ -5,6 +5,8 @@ import {
   buildI2IWorkflow,
   buildVideoWorkflow,
   buildCharacterWorkflow,
+  buildControlNetWorkflow,
+  type ControlType,
 } from '@/lib/workflows';
 import { submit } from '@/lib/inference';
 import {
@@ -33,6 +35,8 @@ interface Body {
   denoise?: number;
   numFrames?: number;
   pulidWeight?: number;
+  controlType?: ControlType;
+  controlStrength?: number;
 }
 
 const KIND_MAP = {
@@ -41,6 +45,7 @@ const KIND_MAP = {
   img2video: 'IMG2VIDEO',
   text2video: 'TEXT2VIDEO',
   character: 'CHARACTER',
+  controlnet: 'CONTROLNET',
 } as const;
 
 export async function POST(req: NextRequest) {
@@ -165,6 +170,29 @@ export async function POST(req: NextRequest) {
           steps: body.steps ?? 20,
           cfg: body.cfg ?? 6,
           seed,
+        });
+        break;
+      case 'controlnet':
+        if (!body.inputImage) {
+          return NextResponse.json({ error: '请上传参考图' }, { status: 400 });
+        }
+        if (!body.controlType) {
+          return NextResponse.json({ error: '请选择控制类型 (openpose / depth / canny)' }, { status: 400 });
+        }
+        workflow = await buildControlNetWorkflow({
+          workflowId: body.workflowId,
+          checkpoint: body.checkpoint,
+          positive: body.positive,
+          negative: body.negative ?? '',
+          inputImage: body.inputImage,
+          controlType: body.controlType,
+          controlStrength: body.controlStrength,
+          width: body.width ?? 1024,
+          height: body.height ?? 1024,
+          steps: body.steps ?? 25,
+          cfg: body.cfg ?? 7,
+          seed,
+          batchSize: body.batchSize ?? 1,
         });
         break;
     }

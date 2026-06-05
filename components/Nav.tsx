@@ -9,6 +9,7 @@ const items = [
   { href: '/', label: '主面板', icon: '◆' },
   { href: '/text2img', label: '文生图', icon: '✦' },
   { href: '/img2img', label: '图生图', icon: '✧' },
+  { href: '/controlnet', label: '姿势控制', icon: '◢' },
   { href: '/img2video', label: '图生视频', icon: '▶' },
   { href: '/text2video', label: '文生视频', icon: '▷' },
   { href: '/character', label: '角色一致性', icon: '◉' },

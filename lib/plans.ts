@@ -16,6 +16,7 @@ export const CREDIT_COSTS = {
   img2video: 10,
   text2video: 12,
   character: 3,
+  controlnet: 2,  // ~2x compute: preprocessor + controlnet forward pass
 } as const;
 
 export type GenerationMode = keyof typeof CREDIT_COSTS;

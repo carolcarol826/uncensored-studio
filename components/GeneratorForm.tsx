@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
-export type Mode = 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character';
+export type Mode = 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet';
+export type ControlType = 'openpose' | 'depth' | 'canny';
 
 interface WorkflowMeta {
   id: string;
@@ -27,6 +28,7 @@ interface Props {
   showDenoise?: boolean;
   showVideoParams?: boolean;
   showPulidWeight?: boolean;
+  showControlType?: boolean;
   imageLabel?: string;
   defaultWidth?: number;
   defaultHeight?: number;
@@ -43,6 +45,7 @@ export default function GeneratorForm({
   showDenoise = false,
   showVideoParams = false,
   showPulidWeight = false,
+  showControlType = false,
   imageLabel = '参考图',
   defaultWidth = 1024,
   defaultHeight = 1024,
@@ -69,6 +72,8 @@ export default function GeneratorForm({
   const [denoise, setDenoise] = useState(0.65);
   const [numFrames, setNumFrames] = useState(49);
   const [pulidWeight, setPulidWeight] = useState(0.95);
+  const [controlType, setControlType] = useState<ControlType>('openpose');
+  const [controlStrength, setControlStrength] = useState(0.8);
 
   const [inputImage, setInputImage] = useState<string>('');
   const [inputImagePreview, setInputImagePreview] = useState<string>('');
@@ -157,6 +162,10 @@ export default function GeneratorForm({
       if (showDenoise) body.denoise = denoise;
       if (showVideoParams) body.numFrames = numFrames;
       if (showPulidWeight) body.pulidWeight = pulidWeight;
+      if (showControlType) {
+        body.controlType = controlType;
+        body.controlStrength = controlStrength;
+      }
 
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -417,6 +426,43 @@ export default function GeneratorForm({
                 越高越像参考脸，但可能降低 prompt 自由度
               </div>
             </div>
+          )}
+
+          {showControlType && (
+            <>
+              <div>
+                <label className="label">控制类型</label>
+                <select
+                  className="input"
+                  value={controlType}
+                  onChange={(e) => setControlType(e.target.value as ControlType)}
+                >
+                  <option value="openpose">OpenPose 姿势 — 复刻人物动作</option>
+                  <option value="depth">Depth 深度 — 保留场景空间结构</option>
+                  <option value="canny">Canny 边缘 — 严格按线稿生成</option>
+                </select>
+                <div className="text-xs text-fg-subtle mt-1">
+                  {controlType === 'openpose' && '上传一张人物图 → AI 提取骨架 → 在你的 prompt 描述下复刻姿势'}
+                  {controlType === 'depth' && '上传任意图 → AI 提取深度 → 按你的 prompt 重画但保留空间布局'}
+                  {controlType === 'canny' && '上传任意图 → AI 提取边缘线 → 严格沿线条生成'}
+                </div>
+              </div>
+              <div>
+                <label className="label">控制强度 {controlStrength.toFixed(2)}（建议 0.7-0.9）</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={controlStrength}
+                  onChange={(e) => setControlStrength(Number(e.target.value))}
+                  className="w-full accent-accent"
+                />
+                <div className="text-xs text-fg-subtle mt-1">
+                  越高越严格按参考图，越低越靠 prompt 自由发挥
+                </div>
+              </div>
+            </>
           )}
 
           {showVideoParams && (
