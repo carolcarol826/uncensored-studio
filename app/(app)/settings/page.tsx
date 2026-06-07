@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AccountPasswordCard from '@/components/AccountPasswordCard';
 
 interface Settings {
   comfyUrl: string;
@@ -60,6 +61,8 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold">设置</h1>
         <p className="text-sm text-fg-muted mt-1">配置保存在 <code className="font-mono">data/settings.json</code></p>
       </header>
+
+      <AccountPasswordCard />
 
       <div className="card space-y-4">
         <h2 className="font-semibold">ComfyUI 后端</h2>

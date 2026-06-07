@@ -4,9 +4,11 @@
 import NextAuth, { type DefaultSession } from 'next-auth';
 import Resend from 'next-auth/providers/resend';
 import Google from 'next-auth/providers/google';
+import Credentials from 'next-auth/providers/credentials';
 import { Resend as ResendClient } from 'resend';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { createUser, getUserByEmail } from './lib/store';
+import { verifyPassword } from './lib/password';
 import { isDbSkipped, prisma } from './lib/db';
 
 declare module 'next-auth' {
@@ -34,6 +36,12 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET,
 
   providers: [
+    // Magic-link (Email) provider REQUIRES a database adapter to store
+    // VerificationTokens. In SKIP_DB mock mode there's no adapter, so skip it
+    // (it can't work there anyway) — password + Google login still function.
+    ...(isDbSkipped
+      ? []
+      : [
     Resend({
       apiKey: process.env.RESEND_API_KEY ?? 'mock',
       from: process.env.AUTH_EMAIL_FROM ?? 'login@local.dev',
@@ -60,6 +68,28 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           `,
         });
         if (error) throw new Error(error.message);
+      },
+    }),
+        ]),
+    // Email + password login. Users get a password via /api/auth/register
+    // (new accounts) or by setting one in Settings (existing OAuth/magic-link
+    // accounts). Works on the same JWT session as the other providers.
+    Credentials({
+      id: 'password',
+      name: 'Password',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(creds) {
+        const email = String(creds?.email ?? '').toLowerCase().trim();
+        const password = String(creds?.password ?? '');
+        if (!email || !password) return null;
+        const user = await getUserByEmail(email);
+        if (!user || !user.password) return null;
+        const ok = await verifyPassword(password, user.password);
+        if (!ok) return null;
+        return { id: user.id, email: user.email, name: user.name ?? undefined };
       },
     }),
     // Google OAuth — enabled only when both env vars are set.

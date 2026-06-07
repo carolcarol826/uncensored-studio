@@ -20,6 +20,7 @@ interface MockUser {
   name: string | null;
   image: string | null;
   ageVerifiedAt: Date | null;
+  password: string | null;
   credits: number;
   totalSpent: number;
   createdAt: Date;
@@ -75,6 +76,7 @@ function ensureMockSeed() {
     name: 'Demo User',
     image: null,
     ageVerifiedAt: new Date(),
+    password: null,
     credits: 1000,
     totalSpent: 0,
     createdAt: new Date(),
@@ -110,7 +112,11 @@ export async function getUserById(id: string): Promise<User | null> {
   return u as User | null;
 }
 
-export async function createUser(args: { email: string; name?: string }): Promise<User> {
+export async function createUser(args: {
+  email: string;
+  name?: string;
+  password?: string; // already hashed (see lib/password.ts)
+}): Promise<User> {
   if (isDbSkipped) {
     ensureMockSeed();
     const id = makeId('u');
@@ -120,6 +126,7 @@ export async function createUser(args: { email: string; name?: string }): Promis
       name: args.name ?? null,
       image: null,
       ageVerifiedAt: null,
+      password: args.password ?? null,
       credits: 20,
       totalSpent: 0,
       createdAt: new Date(),
@@ -142,7 +149,9 @@ export async function createUser(args: { email: string; name?: string }): Promis
   }
 
   return prisma.$transaction(async (tx) => {
-    const u = await tx.user.create({ data: { email: args.email, name: args.name } });
+    const u = await tx.user.create({
+      data: { email: args.email, name: args.name, password: args.password },
+    });
     await tx.creditTx.create({
       data: {
         userId: u.id,
@@ -153,6 +162,22 @@ export async function createUser(args: { email: string; name?: string }): Promis
       },
     });
     return u as User;
+  });
+}
+
+/** Set or change a user's password hash. */
+export async function setUserPassword(
+  userId: string,
+  hashedPassword: string
+): Promise<void> {
+  if (isDbSkipped) {
+    const u = mockUsers.get(userId);
+    if (u) u.password = hashedPassword;
+    return;
+  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedPassword },
   });
 }
 

@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { signIn } from 'next-auth/react';
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ sent?: string; callbackUrl?: string }>;
-}) {
+type View = 'magic' | 'password';
+
+export default function LoginPage() {
+  const [view, setView] = useState<View>('magic');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState('');
@@ -21,7 +21,13 @@ export default function LoginPage({
       .catch(() => {});
   }, []);
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const switchView = (v: View) => {
+    setView(v);
+    setErr('');
+  };
+
+  // Magic link (primary)
+  const onMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErr('');
@@ -34,8 +40,28 @@ export default function LoginPage({
       if (res?.error) throw new Error(res.error);
       setSent(true);
     } catch (e: any) {
-      setErr(e?.message || '登录失败');
+      setErr(e?.message || '发送失败');
     } finally {
+      setLoading(false);
+    }
+  };
+
+  // Email + password
+  const onPasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErr('');
+    try {
+      const res = await signIn('password', {
+        email,
+        password,
+        redirect: false,
+        callbackUrl: '/dashboard',
+      });
+      if (res?.error) throw new Error('邮箱或密码不正确');
+      window.location.href = res?.url || '/dashboard';
+    } catch (e: any) {
+      setErr(e?.message || '登录失败');
       setLoading(false);
     }
   };
@@ -50,10 +76,7 @@ export default function LoginPage({
             </div>
             <span className="text-xl font-bold">MyHim Studio</span>
           </div>
-          <h1 className="text-2xl font-bold">登录 / 注册</h1>
-          <p className="text-fg-muted text-sm mt-2">
-            输入邮箱，我们会发一封登录链接给你。无需密码。
-          </p>
+          <h1 className="text-2xl font-bold">登录</h1>
         </div>
 
         {sent ? (
@@ -65,13 +88,21 @@ export default function LoginPage({
             </div>
             <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded p-2.5 mt-3 text-left">
               <strong>第一次登录提示</strong>：
-              <br/>· 邮件可能在<strong>垃圾邮件夹</strong>（来自 <code className="font-mono">login@myhim.love</code>）
-              <br/>· 收到后请右键 <strong>"非垃圾邮件"</strong>，下次会进收件箱
-              <br/>· 等 1-2 分钟，如还没有可<a href="/login" className="text-accent hover:underline">重新发送</a>
+              <br />· 邮件可能在<strong>垃圾邮件夹</strong>（来自{' '}
+              <code className="font-mono">login@myhim.love</code>）
+              <br />· 收到后请右键 <strong>"非垃圾邮件"</strong>，下次会进收件箱
+              <br />· 等 1-2 分钟，如还没有可
+              <button
+                type="button"
+                onClick={() => setSent(false)}
+                className="text-accent hover:underline"
+              >
+                重新发送
+              </button>
             </div>
           </div>
         ) : (
-          <form onSubmit={onSubmit} className="card space-y-4">
+          <div className="card space-y-4">
             {googleEnabled && (
               <>
                 <button
@@ -109,31 +140,109 @@ export default function LoginPage({
                 </div>
               </>
             )}
-            <div>
-              <label className="label">邮箱</label>
-              <input
-                type="email"
-                required
-                className="input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </div>
-            {err && (
-              <div className="text-sm text-danger bg-danger/10 border border-danger/30 rounded p-2">
-                {err}
-              </div>
+
+            {view === 'magic' ? (
+              <form onSubmit={onMagicLink} className="space-y-4">
+                <div>
+                  <label className="label">邮箱</label>
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    className="input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
+                {err && (
+                  <div className="text-sm text-danger bg-danger/10 border border-danger/30 rounded p-2">
+                    {err}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full py-3"
+                >
+                  {loading ? '发送中…' : '发送登录链接'}
+                </button>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => switchView('password')}
+                    className="text-sm text-fg-muted hover:text-fg"
+                  >
+                    用邮箱密码登录
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={onPasswordLogin} className="space-y-4">
+                <div>
+                  <label className="label">邮箱</label>
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    className="input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="label">密码</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="current-password"
+                    className="input"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+                {err && (
+                  <div className="text-sm text-danger bg-danger/10 border border-danger/30 rounded p-2">
+                    {err}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full py-3"
+                >
+                  {loading ? '登录中…' : '登录'}
+                </button>
+                <div className="flex items-center justify-between text-sm">
+                  <button
+                    type="button"
+                    onClick={() => switchView('magic')}
+                    className="text-fg-muted hover:text-fg"
+                  >
+                    ← 用登录链接
+                  </button>
+                  <span className="text-fg-subtle">
+                    忘记密码？用登录链接登录后在设置里重设
+                  </span>
+                </div>
+              </form>
             )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full py-3"
-            >
-              {loading ? '发送中…' : '发送登录链接'}
-            </button>
-            <div className="text-xs text-fg-subtle text-center">
-              点击登录即表示同意{' '}
+          </div>
+        )}
+
+        {!sent && (
+          <div className="text-center mt-6 space-y-3">
+            <div className="text-sm text-fg-muted">
+              还没有账号？{' '}
+              <a href="/register" className="text-accent hover:underline font-medium">
+                注册
+              </a>
+            </div>
+            <div className="text-xs text-fg-subtle">
+              登录即表示同意{' '}
               <a href="/legal/terms" className="text-accent hover:underline">
                 服务条款
               </a>{' '}
@@ -143,14 +252,11 @@ export default function LoginPage({
               </a>
               。
             </div>
-          </form>
+            <a href="/" className="inline-block text-sm text-fg-muted hover:text-fg">
+              ← 返回首页
+            </a>
+          </div>
         )}
-
-        <div className="text-center mt-6">
-          <a href="/" className="text-sm text-fg-muted hover:text-fg">
-            ← 返回首页
-          </a>
-        </div>
       </div>
     </div>
   );

@@ -27,6 +27,10 @@ model User {
   // Age verification (must accept 18+ on signup)
   ageVerifiedAt DateTime?
 
+  // Password login (optional — null for OAuth / magic-link-only accounts).
+  // Format: "scrypt$<saltHex>$<hashHex>" (see lib/password.ts).
+  password      String?
+
   // Credits
   credits       Int       @default(20) // free-trial credits on signup
   totalSpent    Int       @default(0)  // lifetime credits consumed (analytics)
