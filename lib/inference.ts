@@ -105,7 +105,8 @@ function endpointFor(kind: EndpointKind): string {
 
 async function runpodSubmit(
   workflow: Record<string, unknown>,
-  kind: EndpointKind = 'image'
+  kind: EndpointKind = 'image',
+  webhookUrl?: string
 ): Promise<SubmitResult> {
   const endpoint = endpointFor(kind);
   const key = required('RUNPOD_API_KEY');
@@ -115,7 +116,9 @@ async function runpodSubmit(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${key}`,
     },
-    body: JSON.stringify({ input: { workflow } }),
+    // RunPod calls `webhook` when the job finishes — this is what finalizes the
+    // generation server-side even if the user closed the browser tab.
+    body: JSON.stringify({ input: { workflow }, ...(webhookUrl ? { webhook: webhookUrl } : {}) }),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -174,13 +177,15 @@ async function runpodStatus(jobId: string): Promise<InferenceStatus> {
 export interface SubmitOpts {
   /** image (default — fast SDXL endpoint) or video (Wan 2.2 endpoint) */
   kind?: EndpointKind;
+  /** RunPod calls this URL on job completion (server-side finalization). */
+  webhookUrl?: string;
 }
 
 export async function submit(
   workflow: Record<string, unknown>,
   opts: SubmitOpts = {}
 ): Promise<SubmitResult> {
-  if (provider === 'runpod') return runpodSubmit(workflow, opts.kind ?? 'image');
+  if (provider === 'runpod') return runpodSubmit(workflow, opts.kind ?? 'image', opts.webhookUrl);
   return localSubmit(workflow);
 }
 
