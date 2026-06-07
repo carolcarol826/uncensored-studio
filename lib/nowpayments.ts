@@ -68,7 +68,13 @@ export async function createInvoice(args: CreateInvoiceArgs): Promise<NowInvoice
  * Returns true if the signature matches OR if running in mock mode.
  */
 export function verifyIPN(rawBody: string, signatureHeader: string | null): boolean {
-  if (!process.env.NOWPAYMENTS_IPN_SECRET) return true; // mock mode
+  const secret = process.env.NOWPAYMENTS_IPN_SECRET;
+  if (!secret) {
+    // NEVER bypass signature verification in production — a missing secret
+    // would otherwise turn this endpoint into a free-credit faucet.
+    if (process.env.NODE_ENV === 'production') return false;
+    return true; // dev / mock only
+  }
 
   if (!signatureHeader) return false;
 
@@ -77,7 +83,7 @@ export function verifyIPN(rawBody: string, signatureHeader: string | null): bool
     const parsed = JSON.parse(rawBody);
     const sortedString = JSON.stringify(sortKeys(parsed));
     const hmac = crypto
-      .createHmac('sha512', process.env.NOWPAYMENTS_IPN_SECRET)
+      .createHmac('sha512', secret)
       .update(sortedString)
       .digest('hex');
     return crypto.timingSafeEqual(

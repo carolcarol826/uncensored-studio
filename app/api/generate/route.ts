@@ -257,25 +257,37 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Create generation row (for history)
-  const gen = await createGeneration({
-    userId,
-    kind: KIND_MAP[body.mode],
-    workflowId: body.workflowId,
-    checkpoint: body.checkpoint,
-    prompt: body.positive,
-    negativePrompt: body.negative,
-    width: body.width ?? 1024,
-    height: body.height ?? 1024,
-    steps: body.steps ?? 25,
-    cfg: body.cfg ?? 7,
-    seed: BigInt(seed),
-    batchSize: body.batchSize ?? 1,
-    numFrames: body.numFrames,
-    inputImageKey: body.inputImage,
-    costCredits,
-    promptIdRemote: jobId,
-  });
+  // Create generation row (for history). If this fails AFTER a successful
+  // submit, the user was already charged — refund so credits are never lost
+  // to a transient DB error (the client just loses the ability to poll).
+  let gen;
+  try {
+    gen = await createGeneration({
+      userId,
+      kind: KIND_MAP[body.mode],
+      workflowId: body.workflowId,
+      checkpoint: body.checkpoint,
+      prompt: body.positive,
+      negativePrompt: body.negative,
+      width: body.width ?? 1024,
+      height: body.height ?? 1024,
+      steps: body.steps ?? 25,
+      cfg: body.cfg ?? 7,
+      seed: BigInt(seed),
+      batchSize: body.batchSize ?? 1,
+      numFrames: body.numFrames,
+      inputImageKey: body.inputImage,
+      costCredits,
+      promptIdRemote: jobId,
+    });
+  } catch (err: any) {
+    const { addCredits } = await import('@/lib/store');
+    await addCredits(userId, costCredits, 'REFUND', undefined, 'createGeneration failed');
+    return NextResponse.json(
+      { error: `生成记录创建失败，积分已退还：${err?.message ?? err}` },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
     generationId: gen.id,

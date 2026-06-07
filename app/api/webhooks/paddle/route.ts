@@ -68,6 +68,22 @@ export async function POST(req: NextRequest) {
     if (credits <= 0) {
       return NextResponse.json({ ok: true, ignored: 'unknown ref' });
     }
+    // Payment integrity: reject if currency isn't USD or the charged amount
+    // doesn't match the expected price. Paddle binds the amount to the
+    // price_id we created, but validate defensively against tampering.
+    const expectedUsd = expectedUsdForRef(ref);
+    const totals = evt.data?.details?.totals;
+    const currency = (totals?.currency_code || evt.data?.currency_code || '').toUpperCase();
+    if (currency && currency !== 'USD') {
+      return NextResponse.json({ ok: true, ignored: 'unexpected currency' });
+    }
+    if (expectedUsd != null && totals?.grand_total != null) {
+      // Paddle Billing amounts are strings in the currency's smallest unit (cents).
+      const paidUsd = Number(totals.grand_total) / 100;
+      if (Number.isFinite(paidUsd) && Math.abs(paidUsd - expectedUsd) > 0.01) {
+        return NextResponse.json({ ok: true, ignored: 'price mismatch' });
+      }
+    }
     try {
       await addCredits(userId, credits, kind, evt.event_id, note);
     } catch (err: any) {
@@ -158,6 +174,13 @@ export async function POST(req: NextRequest) {
 
   // Other events (subscription.created, transaction.paid, etc.) — ack but skip.
   return NextResponse.json({ ok: true, skipped: evt.event_type });
+}
+
+// Expected USD price for a checkout ref, or null if unknown.
+function expectedUsdForRef(ref: string): number | null {
+  if (ref.startsWith('topup_')) return getTopup(ref.replace(/^topup_/, ''))?.priceUsd ?? null;
+  if (ref.startsWith('sub_')) return getPlan(ref.replace(/^sub_/, ''))?.priceUsd ?? null;
+  return null;
 }
 
 function resolveCredits(ref: string): {

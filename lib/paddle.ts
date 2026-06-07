@@ -85,7 +85,11 @@ export function verifyPaddleSignature(
   signatureHeader: string | null
 ): boolean {
   const secret = process.env.PADDLE_WEBHOOK_SECRET;
-  if (!secret) return true; // dev mode bypass
+  if (!secret) {
+    // NEVER bypass signature verification in production.
+    if (process.env.NODE_ENV === 'production') return false;
+    return true; // dev mode only
+  }
   if (!signatureHeader) return false;
   const parts = Object.fromEntries(
     signatureHeader.split(';').map((kv) => {

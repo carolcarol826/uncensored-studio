@@ -7,10 +7,10 @@ import { NextRequest } from 'next/server';
 export function isAuthorizedCron(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return process.env.NODE_ENV !== 'production'; // dev: allow
+  // Vercel Cron automatically sends `Authorization: Bearer ${CRON_SECRET}` when
+  // CRON_SECRET is set in env. We rely SOLELY on that — the previous
+  // `x-vercel-cron: 1` fallback was an inbound, attacker-spoofable header that
+  // let anyone trigger cleanup-r2 (mass-deletes user outputs).
   const auth = req.headers.get('authorization');
-  if (auth === `Bearer ${secret}`) return true;
-  // Vercel's automatic cron uses the same Bearer auth, but as belt+suspenders
-  // we also accept x-vercel-cron header (set by Vercel infra).
-  if (req.headers.get('x-vercel-cron') === '1') return true;
-  return false;
+  return auth === `Bearer ${secret}`;
 }

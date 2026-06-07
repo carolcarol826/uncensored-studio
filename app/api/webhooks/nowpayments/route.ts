@@ -44,12 +44,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: 'bad orderId' });
   }
 
-  if (payload.payment_status !== 'finished' && payload.payment_status !== 'confirmed') {
+  // Only the terminal 'finished' status grants credits. Crediting on BOTH
+  // 'confirmed' and 'finished' (the old behavior) double-credited every real
+  // payment, since they are two distinct events for the same payment_id.
+  if (payload.payment_status !== 'finished') {
     return NextResponse.json({ ok: true, status: payload.payment_status });
   }
 
-  // Resolve credits
+  // Resolve credits + the USD price this purchase SHOULD have cost.
   let creditsToAdd = 0;
+  let expectedUsd = 0;
   let txKind: 'PURCHASE_CRYPTO' | 'SUBSCRIPTION_RENEWAL' = 'PURCHASE_CRYPTO';
   let note = '';
 
@@ -57,16 +61,36 @@ export async function POST(req: NextRequest) {
     const t = getTopup(ref.replace(/^topup_/, ''));
     if (!t) return NextResponse.json({ ok: true, ignored: 'unknown topup' });
     creditsToAdd = t.credits + (t.bonus ? parseBonusCredits(t.bonus) : 0);
+    expectedUsd = t.priceUsd;
     note = `Crypto topup: ${t.id}`;
   } else if (ref.startsWith('sub_')) {
     const planId = ref.replace(/^sub_/, '');
     const p = getPlan(planId);
     if (!p) return NextResponse.json({ ok: true, ignored: 'unknown plan' });
     creditsToAdd = p.monthlyCredits;
+    expectedUsd = p.priceUsd;
     txKind = 'SUBSCRIPTION_RENEWAL';
     note = `Subscription: ${planId}`;
   } else {
     return NextResponse.json({ ok: true, ignored: 'unknown ref' });
+  }
+
+  // Payment integrity: the invoice must have been priced in USD at the amount
+  // we expected, and the crypto actually paid must cover the invoiced amount.
+  // Without this, an underpayment (or a tampered invoice) NowPayments still
+  // marks 'finished' would yield full credits for a fraction of the price.
+  if ((payload.price_currency || '').toLowerCase() !== 'usd') {
+    return NextResponse.json({ ok: true, ignored: 'unexpected currency' });
+  }
+  if (Math.abs((payload.price_amount ?? 0) - expectedUsd) > 0.01) {
+    return NextResponse.json({ ok: true, ignored: 'price mismatch' });
+  }
+  if (
+    payload.actually_paid != null &&
+    payload.pay_amount != null &&
+    payload.actually_paid < payload.pay_amount * 0.99
+  ) {
+    return NextResponse.json({ ok: true, ignored: 'underpaid' });
   }
 
   try {

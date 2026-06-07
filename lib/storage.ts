@@ -95,7 +95,12 @@ export async function readLocalFile(key: string): Promise<{ data: Buffer; conten
   if (provider !== 'local') {
     throw new Error('readLocalFile only works in local storage mode');
   }
-  const full = path.join(LOCAL_ROOT, key);
+  const full = path.resolve(LOCAL_ROOT, key);
+  // Containment guard: the resolved path must stay inside LOCAL_ROOT, so a
+  // crafted key like "../../etc/passwd" cannot escape the outputs directory.
+  if (full !== LOCAL_ROOT && !full.startsWith(LOCAL_ROOT + path.sep)) {
+    throw new Error('Invalid key');
+  }
   const data = await fs.readFile(full);
   const ext = path.extname(key).toLowerCase();
   const contentType =
