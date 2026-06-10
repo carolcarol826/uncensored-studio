@@ -19,6 +19,7 @@ const LIMITS: Array<{ pattern: RegExp; perMinute: number }> = [
   { pattern: /^\/api\/upload(\b|\/)/, perMinute: 20 },           // upload: 20/min
   { pattern: /^\/api\/checkout\//, perMinute: 20 },              // checkout: 20/min
   { pattern: /^\/api\/auth\/signin\//, perMinute: 10 },          // signin: 10/min (anti enum)
+  { pattern: /^\/api\/auth\/sms\//, perMinute: 5 },              // SMS send: 5/min/IP (anti bombing)
   { pattern: /^\/api\/(me|credits|gallery|workflows)(\b|\/|\?)/, perMinute: 60 }, // reads
   { pattern: /^\/api\//, perMinute: 120 },                      // catch-all API
 ];

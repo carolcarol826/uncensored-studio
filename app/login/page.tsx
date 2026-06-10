@@ -1,24 +1,45 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 
-type View = 'magic' | 'password';
+type View = 'magic' | 'password' | 'sms';
+
+const GoogleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+  </svg>
+);
 
 export default function LoginPage() {
   const [view, setView] = useState<View>('magic');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState('');
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetch('/api/config')
       .then((r) => r.json())
-      .then((d) => setGoogleEnabled(!!d.auth?.google))
+      .then((d) => {
+        setGoogleEnabled(!!d.auth?.google);
+        setSmsEnabled(!!d.auth?.sms);
+      })
       .catch(() => {});
+    return () => {
+      if (timer.current) clearInterval(timer.current);
+    };
   }, []);
 
   const switchView = (v: View) => {
@@ -26,17 +47,23 @@ export default function LoginPage() {
     setErr('');
   };
 
-  // Magic link (primary)
+  const startCooldown = () => {
+    setCooldown(60);
+    if (timer.current) clearInterval(timer.current);
+    timer.current = setInterval(() => {
+      setCooldown((c) => {
+        if (c <= 1 && timer.current) clearInterval(timer.current);
+        return c - 1;
+      });
+    }, 1000);
+  };
+
   const onMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErr('');
     try {
-      const res = await signIn('resend', {
-        email,
-        redirect: false,
-        callbackUrl: '/dashboard',
-      });
+      const res = await signIn('resend', { email, redirect: false, callbackUrl: '/dashboard' });
       if (res?.error) throw new Error(res.error);
       setSent(true);
     } catch (e: any) {
@@ -46,18 +73,12 @@ export default function LoginPage() {
     }
   };
 
-  // Email + password
   const onPasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErr('');
     try {
-      const res = await signIn('password', {
-        email,
-        password,
-        redirect: false,
-        callbackUrl: '/dashboard',
-      });
+      const res = await signIn('password', { email, password, redirect: false, callbackUrl: '/dashboard' });
       if (res?.error) throw new Error('邮箱或密码不正确');
       window.location.href = res?.url || '/dashboard';
     } catch (e: any) {
@@ -65,6 +86,52 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  const onSendCode = async () => {
+    setErr('');
+    if (!/^1[3-9]\d{9}$/.test(phone.replace(/\s/g, ''))) {
+      setErr('请输入有效的 +86 手机号（11 位）');
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch('/api/auth/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.replace(/\s/g, '') }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '验证码发送失败');
+      startCooldown();
+    } catch (e: any) {
+      setErr(e?.message || '验证码发送失败');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const onSmsLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErr('');
+    try {
+      const res = await signIn('sms', {
+        phone: phone.replace(/\s/g, ''),
+        code: code.trim(),
+        redirect: false,
+        callbackUrl: '/dashboard',
+      });
+      if (res?.error) throw new Error('验证码不正确或已过期');
+      window.location.href = res?.url || '/dashboard';
+    } catch (e: any) {
+      setErr(e?.message || '登录失败');
+      setLoading(false);
+    }
+  };
+
+  const errBox = err ? (
+    <div className="text-sm text-danger bg-danger/10 border border-danger/30 rounded p-2">{err}</div>
+  ) : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -83,20 +150,14 @@ export default function LoginPage() {
           <div className="card text-center space-y-3">
             <div className="text-success font-medium">✓ 登录链接已发送</div>
             <div className="text-sm text-fg-muted">
-              请检查邮箱 <span className="text-fg font-mono">{email}</span>，
-              点击邮件中的"登录"按钮完成登录。
+              请检查邮箱 <span className="text-fg font-mono">{email}</span>，点击邮件中的"登录"按钮完成登录。
             </div>
             <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded p-2.5 mt-3 text-left">
               <strong>第一次登录提示</strong>：
-              <br />· 邮件可能在<strong>垃圾邮件夹</strong>（来自{' '}
-              <code className="font-mono">login@myhim.love</code>）
+              <br />· 邮件可能在<strong>垃圾邮件夹</strong>（来自 <code className="font-mono">login@myhim.love</code>）
               <br />· 收到后请右键 <strong>"非垃圾邮件"</strong>，下次会进收件箱
               <br />· 等 1-2 分钟，如还没有可
-              <button
-                type="button"
-                onClick={() => setSent(false)}
-                className="text-accent hover:underline"
-              >
+              <button type="button" onClick={() => setSent(false)} className="text-accent hover:underline">
                 重新发送
               </button>
             </div>
@@ -110,24 +171,7 @@ export default function LoginPage() {
                   onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
                   className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-md border border-bg-border bg-white hover:bg-gray-50 text-gray-800 font-medium transition"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
+                  <GoogleIcon />
                   <span>使用 Google 登录</span>
                 </button>
                 <div className="relative">
@@ -141,92 +185,78 @@ export default function LoginPage() {
               </>
             )}
 
-            {view === 'magic' ? (
+            {view === 'magic' && (
               <form onSubmit={onMagicLink} className="space-y-4">
                 <div>
                   <label className="label">邮箱</label>
-                  <input
-                    type="email"
-                    required
-                    autoComplete="email"
-                    className="input"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                  />
+                  <input type="email" required autoComplete="email" className="input" value={email}
+                    onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
                 </div>
-                {err && (
-                  <div className="text-sm text-danger bg-danger/10 border border-danger/30 rounded p-2">
-                    {err}
-                  </div>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary w-full py-3"
-                >
+                {errBox}
+                <button type="submit" disabled={loading} className="btn-primary w-full py-3">
                   {loading ? '发送中…' : '发送登录链接'}
                 </button>
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => switchView('password')}
-                    className="text-sm text-fg-muted hover:text-fg"
-                  >
-                    用邮箱密码登录
-                  </button>
+                <div className="flex items-center justify-center gap-3 text-sm text-fg-muted">
+                  <button type="button" onClick={() => switchView('password')} className="hover:text-fg">用邮箱密码登录</button>
+                  {smsEnabled && <><span className="text-fg-subtle">·</span>
+                    <button type="button" onClick={() => switchView('sms')} className="hover:text-fg">手机号登录</button></>}
                 </div>
               </form>
-            ) : (
+            )}
+
+            {view === 'password' && (
               <form onSubmit={onPasswordLogin} className="space-y-4">
                 <div>
                   <label className="label">邮箱</label>
-                  <input
-                    type="email"
-                    required
-                    autoComplete="email"
-                    className="input"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                  />
+                  <input type="email" required autoComplete="email" className="input" value={email}
+                    onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
                 </div>
                 <div>
                   <label className="label">密码</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    autoComplete="current-password"
-                    className="input"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
+                  <input type="password" required minLength={8} autoComplete="current-password" className="input"
+                    value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
                 </div>
-                {err && (
-                  <div className="text-sm text-danger bg-danger/10 border border-danger/30 rounded p-2">
-                    {err}
-                  </div>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary w-full py-3"
-                >
+                {errBox}
+                <button type="submit" disabled={loading} className="btn-primary w-full py-3">
                   {loading ? '登录中…' : '登录'}
                 </button>
-                <div className="flex items-center justify-between text-sm">
-                  <button
-                    type="button"
-                    onClick={() => switchView('magic')}
-                    className="text-fg-muted hover:text-fg"
-                  >
-                    ← 用登录链接
-                  </button>
-                  <span className="text-fg-subtle">
-                    忘记密码？用登录链接登录后在设置里重设
-                  </span>
+                <div className="flex items-center justify-center gap-3 text-sm text-fg-muted">
+                  <button type="button" onClick={() => switchView('magic')} className="hover:text-fg">← 用登录链接</button>
+                  {smsEnabled && <><span className="text-fg-subtle">·</span>
+                    <button type="button" onClick={() => switchView('sms')} className="hover:text-fg">手机号登录</button></>}
+                </div>
+              </form>
+            )}
+
+            {view === 'sms' && (
+              <form onSubmit={onSmsLogin} className="space-y-4">
+                <div>
+                  <label className="label">手机号（仅限 +86）</label>
+                  <div className="flex gap-2">
+                    <span className="inline-flex items-center px-3 rounded-md border border-bg-border text-fg-muted text-sm shrink-0">+86</span>
+                    <input type="tel" required inputMode="numeric" autoComplete="tel-national" className="input"
+                      value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, ''))}
+                      placeholder="13800138000" maxLength={11} />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">验证码</label>
+                  <div className="flex gap-2">
+                    <input type="text" required inputMode="numeric" autoComplete="one-time-code" className="input"
+                      value={code} onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, ''))}
+                      placeholder="6 位验证码" maxLength={6} />
+                    <button type="button" onClick={onSendCode} disabled={sending || cooldown > 0}
+                      className="shrink-0 px-4 rounded-md border border-bg-border text-sm font-medium hover:bg-bg-border/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {cooldown > 0 ? `${cooldown}s` : sending ? '发送中…' : '发送验证码'}
+                    </button>
+                  </div>
+                </div>
+                {errBox}
+                <button type="submit" disabled={loading} className="btn-primary w-full py-3">
+                  {loading ? '登录中…' : '登录 / 注册'}
+                </button>
+                <div className="text-center text-sm text-fg-muted">
+                  <button type="button" onClick={() => switchView('magic')} className="hover:text-fg">← 其他登录方式</button>
                 </div>
               </form>
             )}
@@ -237,24 +267,14 @@ export default function LoginPage() {
           <div className="text-center mt-6 space-y-3">
             <div className="text-sm text-fg-muted">
               还没有账号？{' '}
-              <a href="/register" className="text-accent hover:underline font-medium">
-                注册
-              </a>
+              <a href="/register" className="text-accent hover:underline font-medium">注册</a>
             </div>
             <div className="text-xs text-fg-subtle">
               登录即表示同意{' '}
-              <a href="/legal/terms" className="text-accent hover:underline">
-                服务条款
-              </a>{' '}
-              和{' '}
-              <a href="/legal/privacy" className="text-accent hover:underline">
-                隐私政策
-              </a>
-              。
+              <a href="/legal/terms" className="text-accent hover:underline">服务条款</a>{' '}和{' '}
+              <a href="/legal/privacy" className="text-accent hover:underline">隐私政策</a>。
             </div>
-            <a href="/" className="inline-block text-sm text-fg-muted hover:text-fg">
-              ← 返回首页
-            </a>
+            <a href="/" className="inline-block text-sm text-fg-muted hover:text-fg">← 返回首页</a>
           </div>
         )}
       </div>

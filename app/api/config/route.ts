@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isConfigured as paddleEnabled } from '@/lib/paddle';
 import { isConfigured as nowpaymentsEnabled } from '@/lib/nowpayments';
+import { smsConfigured } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ export async function GET() {
     },
     auth: {
       google: !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
+      sms: smsConfigured(),
     },
   });
 }

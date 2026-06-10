@@ -7,8 +7,9 @@ import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { Resend as ResendClient } from 'resend';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { createUser, getUserByEmail } from './lib/store';
+import { createUser, getUserByEmail, getUserByPhone, verifyPhoneCode } from './lib/store';
 import { verifyPassword } from './lib/password';
+import { normalizeCnPhone, hashCode } from './lib/sms';
 import { isDbSkipped, prisma } from './lib/db';
 
 declare module 'next-auth' {
@@ -89,6 +90,33 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         if (!user || !user.password) return null;
         const ok = await verifyPassword(password, user.password);
         if (!ok) return null;
+        return { id: user.id, email: user.email, name: user.name ?? undefined };
+      },
+    }),
+    // +86 phone SMS-code login. Code is requested via /api/auth/sms/send (Aliyun).
+    // Phone-only accounts get a synthetic unique email so the email-centric
+    // adapter + jwt/session callbacks keep working; the real identity is `phone`.
+    Credentials({
+      id: 'sms',
+      name: 'SMS',
+      credentials: {
+        phone: { label: 'Phone', type: 'tel' },
+        code: { label: 'Code', type: 'text' },
+      },
+      async authorize(creds) {
+        const norm = normalizeCnPhone(String(creds?.phone ?? ''));
+        const code = String(creds?.code ?? '').trim();
+        if (!norm || !/^\d{6}$/.test(code)) return null;
+        const ok = await verifyPhoneCode(norm.e164, hashCode(norm.e164, code));
+        if (!ok) return null;
+        let user = await getUserByPhone(norm.e164);
+        if (!user) {
+          user = await createUser({
+            email: `${norm.national}@phone.myhim.love`,
+            name: norm.e164,
+            phone: norm.e164,
+          });
+        }
         return { id: user.id, email: user.email, name: user.name ?? undefined };
       },
     }),

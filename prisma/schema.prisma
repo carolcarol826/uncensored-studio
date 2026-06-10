@@ -31,6 +31,9 @@ model User {
   // Format: "scrypt$<saltHex>$<hashHex>" (see lib/password.ts).
   password      String?
 
+  // Phone (+86) SMS login — E.164 string, null for non-phone accounts.
+  phone         String?   @unique
+
   // Credits
   credits       Int       @default(20) // free-trial credits on signup
   totalSpent    Int       @default(0)  // lifetime credits consumed (analytics)
@@ -79,6 +82,16 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// -------- Phone (+86) SMS login codes --------
+
+model PhoneCode {
+  phone     String   @id // E.164, e.g. +8613800138000
+  codeHash  String   // sha256(phone + ':' + code)
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @updatedAt
 }
 
 // -------- Generation history --------

@@ -21,6 +21,7 @@ interface MockUser {
   image: string | null;
   ageVerifiedAt: Date | null;
   password: string | null;
+  phone: string | null;
   credits: number;
   totalSpent: number;
   createdAt: Date;
@@ -64,6 +65,8 @@ interface MockCreditTx {
 
 const mockUsers = new Map<string, MockUser>();
 const mockUsersByEmail = new Map<string, string>(); // email → id
+const mockUsersByPhone = new Map<string, string>(); // phone(e164) → id
+const mockPhoneCodes = new Map<string, { codeHash: string; expiresAt: Date; attempts: number }>();
 const mockGenerations = new Map<string, MockGeneration>();
 const mockCreditTxs: MockCreditTx[] = [];
 
@@ -77,6 +80,7 @@ function ensureMockSeed() {
     image: null,
     ageVerifiedAt: new Date(),
     password: null,
+    phone: null,
     credits: 1000,
     totalSpent: 0,
     createdAt: new Date(),
@@ -116,6 +120,7 @@ export async function createUser(args: {
   email: string;
   name?: string;
   password?: string; // already hashed (see lib/password.ts)
+  phone?: string;    // E.164 (+86…) for SMS-login accounts
 }): Promise<User> {
   if (isDbSkipped) {
     ensureMockSeed();
@@ -127,12 +132,14 @@ export async function createUser(args: {
       image: null,
       ageVerifiedAt: null,
       password: args.password ?? null,
+      phone: args.phone ?? null,
       credits: 20,
       totalSpent: 0,
       createdAt: new Date(),
     };
     mockUsers.set(id, u);
     mockUsersByEmail.set(args.email, id);
+    if (args.phone) mockUsersByPhone.set(args.phone, id);
 
     // signup bonus tx
     mockCreditTxs.push({
@@ -150,7 +157,7 @@ export async function createUser(args: {
 
   return prisma.$transaction(async (tx) => {
     const u = await tx.user.create({
-      data: { email: args.email, name: args.name, password: args.password },
+      data: { email: args.email, name: args.name, password: args.password, phone: args.phone },
     });
     await tx.creditTx.create({
       data: {
@@ -191,6 +198,69 @@ export async function setAgeVerified(userId: string): Promise<void> {
     where: { id: userId },
     data: { ageVerifiedAt: new Date() },
   });
+}
+
+// --------- Phone (+86) SMS login ---------
+
+export async function getUserByPhone(phone: string): Promise<User | null> {
+  if (isDbSkipped) {
+    ensureMockSeed();
+    const id = mockUsersByPhone.get(phone);
+    return id ? mockUsers.get(id) ?? null : null;
+  }
+  const u = await prisma.user.findUnique({ where: { phone } });
+  return u as User | null;
+}
+
+/** Store (upsert) a verification code hash for a phone, resetting attempts. */
+export async function savePhoneCode(phone: string, codeHash: string, expiresAt: Date): Promise<void> {
+  if (isDbSkipped) {
+    mockPhoneCodes.set(phone, { codeHash, expiresAt, attempts: 0 });
+    return;
+  }
+  await prisma.phoneCode.upsert({
+    where: { phone },
+    create: { phone, codeHash, expiresAt, attempts: 0 },
+    update: { codeHash, expiresAt, attempts: 0 },
+  });
+}
+
+/** Verify a submitted code hash: consumes on success, bumps attempts on failure. */
+export async function verifyPhoneCode(phone: string, submittedHash: string): Promise<boolean> {
+  if (isDbSkipped) {
+    const row = mockPhoneCodes.get(phone);
+    if (!row) return false;
+    if (row.expiresAt.getTime() < Date.now() || row.attempts >= 5) {
+      mockPhoneCodes.delete(phone);
+      return false;
+    }
+    if (row.codeHash === submittedHash) {
+      mockPhoneCodes.delete(phone);
+      return true;
+    }
+    row.attempts += 1;
+    return false;
+  }
+  const row = await prisma.phoneCode.findUnique({ where: { phone } });
+  if (!row) return false;
+  if (row.expiresAt.getTime() < Date.now() || row.attempts >= 5) {
+    await prisma.phoneCode.delete({ where: { phone } }).catch(() => {});
+    return false;
+  }
+  if (row.codeHash === submittedHash) {
+    await prisma.phoneCode.delete({ where: { phone } }).catch(() => {});
+    return true;
+  }
+  await prisma.phoneCode.update({ where: { phone }, data: { attempts: { increment: 1 } } }).catch(() => {});
+  return false;
+}
+
+/** Seconds since the last code was issued for this phone (for resend throttling), or null. */
+export async function phoneCodeAgeSeconds(phone: string): Promise<number | null> {
+  if (isDbSkipped) return null; // no throttle in mock/dev
+  const row = await prisma.phoneCode.findUnique({ where: { phone }, select: { createdAt: true } });
+  if (!row) return null;
+  return Math.floor((Date.now() - row.createdAt.getTime()) / 1000);
 }
 
 // --------- Credits ---------
