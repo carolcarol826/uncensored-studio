@@ -38,7 +38,9 @@ export async function moderateImage(input: IMSImageInput): Promise<Decision> {
       service: 'ims',
       version: '2020-12-29',
       action: 'ImageModeration',
-      region: 'ap-singapore',
+      // ap-guangzhou is IMS's primary region; ap-singapore returns
+      // UnauthorizedOperation for our sub-account. friend-photo uses gz too.
+      region: 'ap-guangzhou',
       payload,
       sid,
       sk,
