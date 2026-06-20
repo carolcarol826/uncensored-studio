@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useT } from './I18nProvider';
+import { track } from '@/lib/analytics';
 
 export type Mode = 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet';
 export type ControlType = 'openpose' | 'depth' | 'canny';
@@ -205,6 +206,14 @@ export default function GeneratorForm({
 
       const jobId = (data.jobId || data.promptId) as string;
       const generationId = data.generationId as string | undefined;
+      track('generation_submitted', {
+        mode, workflow_id: workflowId, checkpoint,
+        cost_credits: data.costCredits,
+        width, height, steps,
+        batch_size: batchSize,
+        ...(showVideoParams ? { num_frames: numFrames } : {}),
+        ...(showControlType ? { control_type: controlType } : {}),
+      });
       await pollStatus(jobId, generationId);
     } catch (e: any) {
       setError(e.message);
@@ -229,10 +238,12 @@ export default function GeneratorForm({
           queueInfo: undefined,
         });
         if (d.completed) {
+          track('generation_completed', { mode, output_count: d.outputs?.length ?? 0 });
           setSubmitting(false);
           return;
         }
         if (d.status === 'failed') {
+          track('generation_failed', { mode, error: d.error ?? 'unknown' });
           setError(d.error || t('gen.genFailed'));
           setSubmitting(false);
           return;

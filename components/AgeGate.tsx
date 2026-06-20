@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useT } from './I18nProvider';
+import { track } from '@/lib/analytics';
 
 const STORAGE_KEY = 'ust-age-gate-v1';
 
@@ -36,6 +37,7 @@ export default function AgeGate() {
         await update();
       }
       localStorage.setItem(STORAGE_KEY, new Date().toISOString());
+      track('age_verified', { logged_in: !!session?.user?.id });
       setShow(false);
     } finally {
       setSubmitting(false);

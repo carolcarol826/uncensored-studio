@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { SUBSCRIPTION_PLANS, TOPUP_PACKS } from '@/lib/plans';
 import { useT } from '@/components/I18nProvider';
+import { track } from '@/lib/analytics';
 
 export default function PricingPage() {
   const t = useT();
@@ -32,6 +33,7 @@ export default function PricingPage() {
       window.location.href = '/login';
       return;
     }
+    track('checkout_clicked', { kind, item_id: id, provider });
     setLoading(`${provider}_${kind}_${id}`);
     try {
       const body = kind === 'topup' ? { topupId: id } : { planId: id };

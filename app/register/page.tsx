@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useT } from '@/components/I18nProvider';
+import { track } from '@/lib/analytics';
 import LangSwitcher from '@/components/LangSwitcher';
 
 export default function RegisterPage() {
@@ -34,6 +35,7 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('register.failed'));
+      track('signup_completed', { method: 'password', has_ref: !!ref });
       // Auto sign-in with the new credentials
       const login = await signIn('password', {
         email,
