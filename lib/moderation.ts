@@ -1,129 +1,68 @@
-// Image moderation hook. Uses Tencent Cloud IMS (Image Moderation System).
-// Disabled by default; enable in prod by setting IMAGE_MODERATION_ENABLED=true.
+// Self-hosted moderation: calls our audit-worker (FastAPI on RunPod / lisahost / wherever)
+// instead of any SaaS. Decision schema mirrors the worker's response.
 //
-// Returns Decision describing what to do with the image. Caller (generation
-// finalize path) is responsible for acting on it (reject + refund, allow, etc.).
-
-import { createHmac, createHash } from 'crypto';
+// Off by default. Set BOTH:
+//   AUDIT_WORKER_URL    (e.g. https://audit.myhim.love)
+//   AUDIT_WORKER_TOKEN  (matches the worker's AUDIT_TOKEN env)
+// then moderationEnabled() flips to true.
 
 export type Decision =
   | { action: 'allow' }
   | { action: 'block'; reason: string; label: string };
 
-interface IMSImageInput { url?: string; data?: Buffer }
+interface AuditInput { url?: string; data?: Buffer }
 
 export function moderationEnabled(): boolean {
-  // Two-key safety: only run if explicitly enabled AND a custom BizType is set.
-  // The Tencent default BizType blocks all NSFW (which kills our uncensored
-  // site's UX). We refuse to use 'default' until ops creates a custom policy
-  // in the console that only flags CSAM / Polity / Terror and allows NSFW.
-  return (
-    process.env.IMAGE_MODERATION_ENABLED === 'true' &&
-    !!process.env.IMS_BIZ_TYPE &&
-    process.env.IMS_BIZ_TYPE !== 'default'
-  );
+  return !!(process.env.AUDIT_WORKER_URL && process.env.AUDIT_WORKER_TOKEN);
 }
 
-export async function moderateImage(input: IMSImageInput): Promise<Decision> {
+const TIMEOUT_MS = Number(process.env.AUDIT_WORKER_TIMEOUT_MS || '20000');
+
+export async function moderateImage(input: AuditInput): Promise<Decision> {
   if (!moderationEnabled()) return { action: 'allow' };
 
-  // Reuse the global Tencent claude-deploy sub-account API key (per credentials.md
-  // global-share rule). Subaccount already holds AdministratorAccess so IMS is in scope.
-  const sid = process.env.TENCENT_SECRET_ID;
-  const sk = process.env.TENCENT_SECRET_KEY;
-  if (!sid || !sk) {
-    // Configured to moderate but no keys → fail-closed: block, surface as ops issue.
-    return { action: 'block', reason: 'moderation misconfigured (no Tencent keys)', label: 'CONFIG_ERROR' };
-  }
+  const url = process.env.AUDIT_WORKER_URL!.replace(/\/$/, '');
+  const token = process.env.AUDIT_WORKER_TOKEN!;
 
-  // BizType selects which Tencent IMS policy applies. Override via env to
-  // a custom policy (e.g. one that only flags CSAM / Polity / Terror and
-  // allows ordinary NSFW for our uncensored AI site).
-  const bizType = process.env.IMS_BIZ_TYPE || 'default';
-  const payload: Record<string, unknown> = { BizType: bizType };
-  if (input.url) payload.FileUrl = input.url;
-  else if (input.data) payload.FileContent = input.data.toString('base64');
-  else return { action: 'allow' }; // nothing to scan
+  const body: Record<string, string> = {};
+  if (input.data) body.image_base64 = input.data.toString('base64');
+  else if (input.url) body.image_url = input.url;
+  else return { action: 'allow' };
 
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   try {
-    const data = await tcCall({
-      service: 'ims',
-      version: '2020-12-29',
-      action: 'ImageModeration',
-      // ap-guangzhou is IMS's primary region; ap-singapore returns
-      // UnauthorizedOperation for our sub-account. friend-photo uses gz too.
-      region: 'ap-guangzhou',
-      payload,
-      sid,
-      sk,
+    const res = await fetch(`${url}/moderate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Audit-Token': token },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+      cache: 'no-store',
     });
-    const r = data?.Response;
-    if (r?.Error) {
-      return { action: 'block', reason: `IMS error: ${r.Error.Code}`, label: 'IMS_ERROR' };
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      // Fail-closed in production: an audit-worker outage must not become a
+      // policy gap. Fail-open in dev for ergonomics.
+      if (process.env.NODE_ENV === 'production') {
+        return { action: 'block', reason: `audit-worker ${res.status}: ${txt.slice(0, 80)}`, label: 'AUDIT_HTTP_ERROR' };
+      }
+      return { action: 'allow' };
     }
-    // Block on Suggestion=Block. Review (manual review needed) we also block
-    // — too risky to publish to user without admin eyes for an uncensored site.
-    if (r?.Suggestion === 'Block' || r?.Suggestion === 'Review') {
-      const label = r?.Label ?? 'UNKNOWN';
-      // Highest-severity labels for an uncensored AI image site:
-      //   Porn (legal in some places, but CSAM-adjacent risk)
-      //   Child (CSAM — never)
-      //   Polity / Terror / Illegal — country/legal risk
-      return { action: 'block', reason: `IMS ${r?.Suggestion}: ${label}`, label };
+    const data = await res.json() as {
+      action: 'allow' | 'block';
+      reason?: string;
+      label?: string;
+    };
+    if (data.action === 'block') {
+      return { action: 'block', reason: data.reason || 'blocked', label: data.label || 'BLOCK' };
     }
     return { action: 'allow' };
   } catch (e: any) {
-    // Network/transient failure: fail-open in dev, fail-closed in prod.
     if (process.env.NODE_ENV === 'production') {
-      return { action: 'block', reason: `moderation call failed: ${e?.message}`, label: 'TRANSIENT' };
+      return { action: 'block', reason: `audit-worker unreachable: ${e?.message ?? e}`, label: 'AUDIT_NETWORK' };
     }
     return { action: 'allow' };
+  } finally {
+    clearTimeout(timer);
   }
-}
-
-// --- Tencent Cloud TC3-HMAC-SHA256 signing (no SDK) ---
-
-async function tcCall(opts: {
-  service: string; version: string; action: string; region: string;
-  payload: Record<string, unknown>; sid: string; sk: string;
-}) {
-  const { service, version, action, region, payload, sid, sk } = opts;
-  const host = `${service}.tencentcloudapi.com`;
-  const body = JSON.stringify(payload);
-  const ts = Math.floor(Date.now() / 1000);
-  const date = new Date(ts * 1000).toISOString().slice(0, 10);
-
-  const canonical = [
-    'POST', '/', '',
-    `content-type:application/json; charset=utf-8\nhost:${host}\nx-tc-action:${action.toLowerCase()}\n`,
-    'content-type;host;x-tc-action',
-    createHash('sha256').update(body).digest('hex'),
-  ].join('\n');
-  const credScope = `${date}/${service}/tc3_request`;
-  const stringToSign = [
-    'TC3-HMAC-SHA256',
-    String(ts),
-    credScope,
-    createHash('sha256').update(canonical).digest('hex'),
-  ].join('\n');
-  const kDate = createHmac('sha256', `TC3${sk}`).update(date).digest();
-  const kService = createHmac('sha256', kDate).update(service).digest();
-  const kSigning = createHmac('sha256', kService).update('tc3_request').digest();
-  const sig = createHmac('sha256', kSigning).update(stringToSign).digest('hex');
-
-  const auth = `TC3-HMAC-SHA256 Credential=${sid}/${credScope}, SignedHeaders=content-type;host;x-tc-action, Signature=${sig}`;
-  const res = await fetch(`https://${host}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Host': host,
-      'X-TC-Action': action,
-      'X-TC-Timestamp': String(ts),
-      'X-TC-Version': version,
-      'X-TC-Region': region,
-      'Authorization': auth,
-    },
-    body,
-  });
-  return res.json();
 }

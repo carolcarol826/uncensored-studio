@@ -1,0 +1,57 @@
+# Celebrity face seed library — name|wikimedia-image-url
+# Format: one per line; lines starting with # are comments.
+# Sourcing rule: ONLY Wikimedia Commons / Wikipedia thumbnails (public domain or CC),
+# so the resulting .npz can ship inside our Docker image with no redistribution issue.
+#
+# This is the v0 seed. We deliberately keep it focused on the highest-risk
+# deepfake-porn targets (musicians, actors, politicians) rather than tries to be
+# exhaustive. Add more lines later; the rebuild script is idempotent.
+
+# --- International musicians (high deepfake risk) ---
+Taylor Swift|https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/191125_Taylor_Swift_at_the_2019_American_Music_Awards_%28cropped%29.png/440px-191125_Taylor_Swift_at_the_2019_American_Music_Awards_%28cropped%29.png
+Ariana Grande|https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Ariana_Grande_Grammys_Red_Carpet_2020.png/440px-Ariana_Grande_Grammys_Red_Carpet_2020.png
+Billie Eilish|https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Billie_Eilish_O2_Shepherds_Bush_Empire-1_%28cropped%29.jpg/440px-Billie_Eilish_O2_Shepherds_Bush_Empire-1_%28cropped%29.jpg
+Selena Gomez|https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Selena_Gomez_-_Rare_Beauty_launch_%28cropped%29.png/440px-Selena_Gomez_-_Rare_Beauty_launch_%28cropped%29.png
+Dua Lipa|https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Dua_Lipa_at_Glastonbury_2024_%28cropped%29.jpg/440px-Dua_Lipa_at_Glastonbury_2024_%28cropped%29.jpg
+Beyonce|https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Beyonc%C3%A9_at_The_Lion_King_European_Premiere_2019.png/440px-Beyonc%C3%A9_at_The_Lion_King_European_Premiere_2019.png
+Rihanna|https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Rihanna_Fenty_Beauty_2018.png/440px-Rihanna_Fenty_Beauty_2018.png
+
+# --- International actors ---
+Emma Watson|https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Emma_Watson_2013.jpg/440px-Emma_Watson_2013.jpg
+Scarlett Johansson|https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Scarlett_Johansson_Cannes_2023.png/440px-Scarlett_Johansson_Cannes_2023.png
+Margot Robbie|https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Margot_Robbie_%2823636026133%29_%28cropped%29.jpg/440px-Margot_Robbie_%2823636026133%29_%28cropped%29.jpg
+Zendaya|https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Zendaya_-_2019_by_Glenn_Francis.jpg/440px-Zendaya_-_2019_by_Glenn_Francis.jpg
+Anne Hathaway|https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Anne_Hathaway_at_the_2019_Toronto_International_Film_Festival_%28cropped%29.jpg/440px-Anne_Hathaway_at_the_2019_Toronto_International_Film_Festival_%28cropped%29.jpg
+Gal Gadot|https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Gal_Gadot_by_Gage_Skidmore_2.jpg/440px-Gal_Gadot_by_Gage_Skidmore_2.jpg
+Tom Cruise|https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Tom_Cruise_by_Gage_Skidmore_2.jpg/440px-Tom_Cruise_by_Gage_Skidmore_2.jpg
+Chris Hemsworth|https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Chris_Hemsworth_by_Gage_Skidmore_2.jpg/440px-Chris_Hemsworth_by_Gage_Skidmore_2.jpg
+Robert Downey Jr|https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Robert_Downey%2C_Jr._2014_Comic_Con_%28cropped%29.jpg/440px-Robert_Downey%2C_Jr._2014_Comic_Con_%28cropped%29.jpg
+Leonardo DiCaprio|https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Leonardo_Dicaprio_Cannes_2019.jpg/440px-Leonardo_Dicaprio_Cannes_2019.jpg
+
+# --- US politicians (high-risk for deepfake misinformation) ---
+Joe Biden|https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Joe_Biden_presidential_portrait.jpg/440px-Joe_Biden_presidential_portrait.jpg
+Kamala Harris|https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Kamala_Harris_Vice_Presidential_Portrait.jpg/440px-Kamala_Harris_Vice_Presidential_Portrait.jpg
+Donald Trump|https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Donald_Trump_official_portrait.jpg/440px-Donald_Trump_official_portrait.jpg
+Barack Obama|https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/President_Barack_Obama.jpg/440px-President_Barack_Obama.jpg
+Hillary Clinton|https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Hillary_Clinton_by_Gage_Skidmore_2.jpg/440px-Hillary_Clinton_by_Gage_Skidmore_2.jpg
+
+# --- World leaders ---
+Vladimir Putin|https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Vladimir_Putin_%282023-04-25%29.jpg/440px-Vladimir_Putin_%282023-04-25%29.jpg
+Volodymyr Zelenskyy|https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Volodymyr_Zelensky_Official_portrait.jpg/440px-Volodymyr_Zelensky_Official_portrait.jpg
+Emmanuel Macron|https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Emmanuel_Macron_in_July_2017.jpg/440px-Emmanuel_Macron_in_July_2017.jpg
+
+# --- Tech ---
+Elon Musk|https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Elon_Musk_Royal_Society_%28crop2%29.jpg/440px-Elon_Musk_Royal_Society_%28crop2%29.jpg
+Mark Zuckerberg|https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Mark_Zuckerberg_F8_2019_Keynote_%2832830578717%29_%28cropped%29.jpg/440px-Mark_Zuckerberg_F8_2019_Keynote_%2832830578717%29_%28cropped%29.jpg
+Sam Altman|https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Sam_Altman_TechCrunch_SF_2019_Day_2_Oct_3_%2848838377416%29_%28cropped%29.jpg/440px-Sam_Altman_TechCrunch_SF_2019_Day_2_Oct_3_%2848838377416%29_%28cropped%29.jpg
+
+# --- Chinese — politicians (extremely high regulatory risk if any deepfake) ---
+Xi Jinping|https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Xi_Jinping_2019.jpg/440px-Xi_Jinping_2019.jpg
+Li Qiang|https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Li_Qiang_2023.jpg/440px-Li_Qiang_2023.jpg
+
+# --- Chinese — entertainment (high deepfake demand) ---
+Zhao Liying|https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Zhao_Liying_at_2018_Beijing_International_Film_Festival.jpg/440px-Zhao_Liying_at_2018_Beijing_International_Film_Festival.jpg
+Yang Mi|https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Yang_Mi_2017.jpg/440px-Yang_Mi_2017.jpg
+Liu Yifei|https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Liu_Yifei_2020.jpg/440px-Liu_Yifei_2020.jpg
+Fan Bingbing|https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Fan_Bingbing_Cannes_2018.jpg/440px-Fan_Bingbing_Cannes_2018.jpg
+Jackie Chan|https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Jackie_Chan_July_2016.jpg/440px-Jackie_Chan_July_2016.jpg

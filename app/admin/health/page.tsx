@@ -68,19 +68,26 @@ async function runChecks(): Promise<Check[]> {
   // CRON
   out.push({ name: 'Cron secret', ok: !!process.env.CRON_SECRET, detail: process.env.CRON_SECRET ? 'set — cron endpoints protected' : 'NOT set — cron endpoints publicly callable in dev' });
 
-  // Image moderation hook — must be EN + custom BizType (default policy blocks all NSFW)
-  const modEn = process.env.IMAGE_MODERATION_ENABLED === 'true';
-  const biz = process.env.IMS_BIZ_TYPE;
-  const customBiz = !!biz && biz !== 'default';
-  out.push({
-    name: 'Image moderation (Tencent IMS)',
-    ok: modEn && customBiz,
-    detail: !modEn
-      ? 'disabled — set IMAGE_MODERATION_ENABLED=true'
-      : !customBiz
-      ? `idle — custom BizType not set (current IMS_BIZ_TYPE=${biz ?? '<unset>'}). Default policy would block all NSFW; create a CSAM/Polity/Terror-only policy in console.cloud.tencent.com/cms and set IMS_BIZ_TYPE=<policy id>.`
-      : `enabled — outputs scanned with BizType=${biz}`,
-  });
+  // Image moderation — self-hosted audit-worker (NSFW + face age + celebrity)
+  const auditUrl = process.env.AUDIT_WORKER_URL;
+  const auditTok = process.env.AUDIT_WORKER_TOKEN;
+  let auditDetail = 'not configured — set AUDIT_WORKER_URL + AUDIT_WORKER_TOKEN';
+  let auditOk = false;
+  if (auditUrl && auditTok) {
+    try {
+      const r = await fetch(`${auditUrl.replace(/\/$/, '')}/health`, { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+      if (r.ok) {
+        const data = (await r.json()) as { ok?: boolean; version?: string; celeb_lib_present?: boolean; thresholds?: any };
+        auditOk = !!data.ok;
+        auditDetail = `online — v${data.version ?? '?'} · celeb-lib=${data.celeb_lib_present ? 'yes' : 'NO'} · thresholds=${JSON.stringify(data.thresholds ?? {})}`;
+      } else {
+        auditDetail = `worker returned ${r.status}`;
+      }
+    } catch (e: any) {
+      auditDetail = `worker unreachable: ${e?.message ?? e}`;
+    }
+  }
+  out.push({ name: 'Image moderation (self-hosted audit-worker)', ok: auditOk, detail: auditDetail });
 
   return out;
 }
