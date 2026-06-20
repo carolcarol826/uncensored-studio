@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
+import ReferralCard from '@/components/ReferralCard';
 
 interface MeUser {
   id: string;
@@ -89,6 +90,8 @@ export default function DashboardPage() {
           <a href="/pricing" className="btn-primary text-sm mt-auto">购买积分</a>
         </div>
       </section>
+
+      <ReferralCard />
 
       <section className="card">
         <h2 className="font-semibold mb-3">账户信息</h2>

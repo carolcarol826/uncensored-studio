@@ -22,10 +22,12 @@ export default function RegisterPage() {
     setLoading(true);
     setErr('');
     try {
+      const refMatch = document.cookie.match(/(?:^|;\s*)ref=([^;]+)/);
+      const ref = refMatch ? decodeURIComponent(refMatch[1]) : undefined;
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, ref }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '注册失败');

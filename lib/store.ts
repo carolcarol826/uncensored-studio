@@ -22,6 +22,8 @@ interface MockUser {
   ageVerifiedAt: Date | null;
   password: string | null;
   phone: string | null;
+  referralCode: string | null;
+  referredById: string | null;
   credits: number;
   totalSpent: number;
   createdAt: Date;
@@ -81,6 +83,8 @@ function ensureMockSeed() {
     ageVerifiedAt: new Date(),
     password: null,
     phone: null,
+    referralCode: 'DEMO',
+    referredById: null,
     credits: 1000,
     totalSpent: 0,
     createdAt: new Date(),
@@ -116,11 +120,20 @@ export async function getUserById(id: string): Promise<User | null> {
   return u as User | null;
 }
 
+// 8-char unique referral code, ambiguous chars removed (no 0/O/1/I).
+function makeReferralCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 8; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return s;
+}
+
 export async function createUser(args: {
   email: string;
   name?: string;
   password?: string; // already hashed (see lib/password.ts)
   phone?: string;    // E.164 (+86…) for SMS-login accounts
+  referredById?: string; // referrer User.id, if signup came via /?ref=...
 }): Promise<User> {
   if (isDbSkipped) {
     ensureMockSeed();
@@ -133,6 +146,8 @@ export async function createUser(args: {
       ageVerifiedAt: null,
       password: args.password ?? null,
       phone: args.phone ?? null,
+      referralCode: makeReferralCode(),
+      referredById: args.referredById ?? null,
       credits: 20,
       totalSpent: 0,
       createdAt: new Date(),
@@ -156,8 +171,22 @@ export async function createUser(args: {
   }
 
   return prisma.$transaction(async (tx) => {
+    // Generate referral code; retry up to 5 times on the rare collision (~32^8 space).
+    let referralCode = makeReferralCode();
+    for (let i = 0; i < 5; i++) {
+      const dup = await tx.user.findUnique({ where: { referralCode } });
+      if (!dup) break;
+      referralCode = makeReferralCode();
+    }
     const u = await tx.user.create({
-      data: { email: args.email, name: args.name, password: args.password, phone: args.phone },
+      data: {
+        email: args.email,
+        name: args.name,
+        password: args.password,
+        phone: args.phone,
+        referralCode,
+        referredById: args.referredById,
+      },
     });
     await tx.creditTx.create({
       data: {
@@ -354,6 +383,30 @@ export async function deductCredits(
     });
     return updated.credits;
   });
+}
+
+// --------- Referrals ---------
+
+export async function getUserByReferralCode(code: string): Promise<User | null> {
+  if (!code) return null;
+  if (isDbSkipped) {
+    ensureMockSeed();
+    for (const u of mockUsers.values()) if (u.referralCode === code) return u;
+    return null;
+  }
+  const u = await prisma.user.findUnique({ where: { referralCode: code } });
+  return u as User | null;
+}
+
+/** Count how many users were referred by `userId` (and how many became paying). */
+export async function getReferralStats(userId: string): Promise<{ count: number }> {
+  if (isDbSkipped) {
+    let count = 0;
+    for (const u of mockUsers.values()) if (u.referredById === userId) count++;
+    return { count };
+  }
+  const count = await prisma.user.count({ where: { referredById: userId } });
+  return { count };
 }
 
 export class InsufficientCreditsError extends Error {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import AgeGate from '@/components/AgeGate';
+import ReferralCapture from '@/components/ReferralCapture';
 import { Providers } from '@/components/Providers';
 
 export const metadata: Metadata = {
@@ -69,6 +70,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <AgeGate />
+          <ReferralCapture />
         </Providers>
       </body>
     </html>

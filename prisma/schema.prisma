@@ -34,6 +34,13 @@ model User {
   // Phone (+86) SMS login — E.164 string, null for non-phone accounts.
   phone         String?   @unique
 
+  // Referral program — unique short code shared via /?ref=<code>;
+  // referredById is the User.id of the user who referred this account.
+  referralCode  String?   @unique
+  referredById  String?
+  referredBy    User?     @relation("Referrals", fields: [referredById], references: [id])
+  referrals     User[]    @relation("Referrals")
+
   // Credits
   credits       Int       @default(20) // free-trial credits on signup
   totalSpent    Int       @default(0)  // lifetime credits consumed (analytics)

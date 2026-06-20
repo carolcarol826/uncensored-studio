@@ -7,7 +7,7 @@ import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { Resend as ResendClient } from 'resend';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { createUser, getUserByEmail, getUserByPhone, verifyPhoneCode } from './lib/store';
+import { createUser, getUserByEmail, getUserByPhone, verifyPhoneCode, getUserByReferralCode, addCredits } from './lib/store';
 import { verifyPassword } from './lib/password';
 import { normalizeCnPhone, hashCode } from './lib/sms';
 import { isDbSkipped, prisma } from './lib/db';
@@ -102,6 +102,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       credentials: {
         phone: { label: 'Phone', type: 'tel' },
         code: { label: 'Code', type: 'text' },
+        ref: { label: 'Ref', type: 'text' }, // optional referral code on first signup
       },
       async authorize(creds) {
         const norm = normalizeCnPhone(String(creds?.phone ?? ''));
@@ -111,11 +112,25 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         if (!ok) return null;
         let user = await getUserByPhone(norm.e164);
         if (!user) {
+          // First-time SMS login = signup; honor referral code if present.
+          const refCode = String(creds?.ref ?? '').trim().toUpperCase();
+          const referrer = refCode ? await getUserByReferralCode(refCode) : null;
           user = await createUser({
             email: `${norm.national}@phone.myhim.love`,
             name: norm.e164,
             phone: norm.e164,
+            referredById: referrer?.id,
           });
+          if (referrer && referrer.id !== user.id) {
+            const rb = Number(process.env.REFERRAL_REFERRER_BONUS ?? '50');
+            const sb = Number(process.env.REFERRAL_SIGNUP_BONUS ?? '50');
+            try {
+              await Promise.all([
+                addCredits(referrer.id, rb, 'ADMIN_ADJUST', user.id, `referral: ${user.email}`),
+                addCredits(user.id, sb, 'ADMIN_ADJUST', referrer.id, 'referred-by bonus'),
+              ]);
+            } catch { /* non-fatal */ }
+          }
         }
         return { id: user.id, email: user.email, name: user.name ?? undefined };
       },

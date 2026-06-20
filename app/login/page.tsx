@@ -115,9 +115,12 @@ export default function LoginPage() {
     setLoading(true);
     setErr('');
     try {
+      const refMatch = document.cookie.match(/(?:^|;\s*)ref=([^;]+)/);
+      const ref = refMatch ? decodeURIComponent(refMatch[1]) : undefined;
       const res = await signIn('sms', {
         phone: phone.replace(/\s/g, ''),
         code: code.trim(),
+        ref,
         redirect: false,
         callbackUrl: '/dashboard',
       });
