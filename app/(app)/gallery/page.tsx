@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/components/I18nProvider';
 
 interface Item {
   url: string;
@@ -12,6 +13,7 @@ interface Item {
 }
 
 export default function GalleryPage() {
+  const t = useT();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -40,14 +42,10 @@ export default function GalleryPage() {
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">我的作品</h1>
-          <p className="text-sm text-fg-muted mt-1">
-            最近 200 条生成记录
-          </p>
+          <h1 className="text-2xl font-bold">{t('gallery.title')}</h1>
+          <p className="text-sm text-fg-muted mt-1">{t('gallery.subtitle')}</p>
         </div>
-        <button onClick={load} className="btn-secondary">
-          刷新
-        </button>
+        <button onClick={load} className="btn-secondary">{t('gallery.refresh')}</button>
       </header>
 
       {error && (
@@ -56,17 +54,15 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {loading && <div className="text-fg-muted">加载中…</div>}
+      {loading && <div className="text-fg-muted">{t('common.loading')}</div>}
 
       {!loading && items.length === 0 && (
         <div className="card text-center py-12">
-          <div className="text-fg-muted">还没有生成记录</div>
+          <div className="text-fg-muted">{t('gallery.empty')}</div>
           <div className="text-sm text-fg-subtle mt-2">
-            去{' '}
-            <a href="/text2img" className="text-accent hover:underline">
-              文生图
-            </a>{' '}
-            生成第一张图
+            {t('gallery.emptyGoPre')}{' '}
+            <a href="/text2img" className="text-accent hover:underline">{t('gallery.emptyGoLink')}</a>{' '}
+            {t('gallery.emptyGoPost')}
           </div>
         </div>
       )}
@@ -89,7 +85,7 @@ export default function GalleryPage() {
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/40 to-blue-900/40 text-fg-muted">
                 <div className="text-center">
                   <div className="text-3xl">▶</div>
-                  <div className="text-xs mt-1">视频</div>
+                  <div className="text-xs mt-1">{t('gallery.video')}</div>
                 </div>
               </div>
             )}
@@ -113,9 +109,7 @@ export default function GalleryPage() {
               <div className="font-mono text-sm text-fg-muted truncate">
                 {selected.filename}
               </div>
-              <button onClick={() => setSelected(null)} className="btn-ghost">
-                ✕ 关闭
-              </button>
+              <button onClick={() => setSelected(null)} className="btn-ghost">{t('gallery.close')}</button>
             </div>
             <div className="p-4">
               {selected.type === 'image' ? (
@@ -137,21 +131,8 @@ export default function GalleryPage() {
                 </div>
               )}
               <div className="mt-4 flex gap-2">
-                <a
-                  href={selected.url}
-                  download={selected.filename}
-                  className="btn-secondary"
-                >
-                  下载
-                </a>
-                <a
-                  href={selected.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-ghost"
-                >
-                  新窗口打开
-                </a>
+                <a href={selected.url} download={selected.filename} className="btn-secondary">{t('gallery.download')}</a>
+                <a href={selected.url} target="_blank" rel="noreferrer" className="btn-ghost">{t('gallery.newWindow')}</a>
               </div>
             </div>
           </div>

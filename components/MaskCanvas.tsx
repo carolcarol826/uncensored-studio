@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useT } from './I18nProvider';
 
 interface Props {
   /** Object URL or http URL of the reference image to draw on. */
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function MaskCanvas({ imageUrl, onMaskChange, maxDisplayWidth = 768 }: Props) {
+  const t = useT();
   const refCanvasRef = useRef<HTMLCanvasElement>(null);    // reference image (background)
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);   // mask overlay (transparent + painted)
   const dispCanvasRef = useRef<HTMLCanvasElement>(null);   // visible composite for display
@@ -172,17 +174,17 @@ export default function MaskCanvas({ imageUrl, onMaskChange, maxDisplayWidth = 7
           onClick={() => setEraser(false)}
           className={`btn-secondary ${!eraser ? 'border-accent text-accent' : ''}`}
         >
-          🖌️ 画笔
+          {t('inpaint.brush')}
         </button>
         <button
           type="button"
           onClick={() => setEraser(true)}
           className={`btn-secondary ${eraser ? 'border-accent text-accent' : ''}`}
         >
-          🧽 橡皮
+          {t('inpaint.eraser')}
         </button>
         <label className="flex items-center gap-2">
-          <span className="text-fg-muted">粗细 {brush}</span>
+          <span className="text-fg-muted">{t('inpaint.brushSize')} {brush}</span>
           <input
             type="range"
             min={5}
@@ -193,12 +195,12 @@ export default function MaskCanvas({ imageUrl, onMaskChange, maxDisplayWidth = 7
           />
         </label>
         <button type="button" onClick={clear} className="btn-secondary">
-          🗑️ 清空
+          {t('inpaint.clear')}
         </button>
       </div>
 
       <div className="text-xs text-fg-subtle">
-        在图上涂抹要 AI 重画的区域（红色部分会被替换）。其余像素保留原图不变。
+        {t('inpaint.canvasHint')}
       </div>
 
       {/* Off-screen canvases for actual pixel work */}

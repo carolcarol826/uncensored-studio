@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import MaskCanvas from '@/components/MaskCanvas';
+import { useT } from '@/components/I18nProvider';
 
 interface WorkflowMeta {
   id: string;
@@ -17,6 +18,7 @@ interface Output {
 }
 
 export default function InpaintPage() {
+  const t = useT();
   const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
   const [checkpoints, setCheckpoints] = useState<string[]>([]);
   const [workflowId, setWorkflowId] = useState('');
@@ -53,7 +55,7 @@ export default function InpaintPage() {
           if (h.checkpoints[0]) setCheckpoint(h.checkpoints[0]);
         }
       } catch (e: any) {
-        setError(`初始化失败：${e.message}`);
+        setError(`${t('gen.initFailed')}: ${e.message}`);
       }
     })();
   }, []);
@@ -68,8 +70,8 @@ export default function InpaintPage() {
   };
 
   const uploadIfNeeded = async (): Promise<{ refName: string; maskName: string }> => {
-    if (!refImageFile) throw new Error('请上传原图');
-    if (!maskBlob) throw new Error('请涂抹要重画的区域');
+    if (!refImageFile) throw new Error(t('inpaint.uploadOriginalFirst'));
+    if (!maskBlob) throw new Error(t('inpaint.paintMaskFirst'));
 
     // Upload reference (if not already uploaded)
     let refName = refImageRemoteName;
@@ -96,10 +98,10 @@ export default function InpaintPage() {
   const submit = async () => {
     setError('');
     setProgress(null);
-    if (!checkpoint) return setError('请选择模型');
-    if (!positive.trim()) return setError('请输入 Prompt');
-    if (!refImageFile) return setError('请上传原图');
-    if (!maskBlob) return setError('请涂抹要重画的区域');
+    if (!checkpoint) return setError(t('inpaint.selectModelFirst'));
+    if (!positive.trim()) return setError(t('inpaint.promptFirst'));
+    if (!refImageFile) return setError(t('inpaint.uploadOriginalFirst'));
+    if (!maskBlob) return setError(t('inpaint.paintMaskFirst'));
 
     setSubmitting(true);
     setUploading(true);
@@ -127,7 +129,7 @@ export default function InpaintPage() {
       const data = await res.json();
       if (res.status === 401) { window.location.href = '/login'; return; }
       if (res.status === 402) {
-        setError(`积分不足（需 ${data.required}，余 ${data.balance}）`);
+        setError(`${t('gen.insufficientCreditsPre')}${data.required}${t('gen.insufficientCreditsMid')}${data.balance}${t('gen.insufficientCreditsPost')}`);
         setTimeout(() => (window.location.href = '/pricing'), 1500);
         setSubmitting(false);
         return;
@@ -155,31 +157,29 @@ export default function InpaintPage() {
         setProgress({ status: d.status, outputs: d.outputs ?? [] });
         if (d.completed) { setSubmitting(false); return; }
         if (d.status === 'failed') {
-          setError(d.error || '生成失败');
+          setError(d.error || t('gen.genFailed'));
           setSubmitting(false);
           return;
         }
       } catch {/* keep polling */}
       await new Promise((r) => setTimeout(r, 3000));
     }
-    setError('超时');
+    setError(t('inpaint.timeout'));
     setSubmitting(false);
   };
 
   return (
     <div className="space-y-6 max-w-5xl">
       <header>
-        <h1 className="text-2xl font-bold">局部重绘 · Inpainting</h1>
-        <p className="text-sm text-fg-muted mt-1">
-          上传图片 → 涂抹要 AI 重画的区域 → 写新 prompt → 只换被涂部分（换衣服 / 改发型 / 改背景 / 修瑕疵）
-        </p>
+        <h1 className="text-2xl font-bold">{t('inpaint.title')}</h1>
+        <p className="text-sm text-fg-muted mt-1">{t('inpaint.subtitle')}</p>
       </header>
 
       {/* Step 1: upload */}
       {!refImageUrl && (
         <section className="card">
           <label className="block">
-            <div className="text-sm text-fg-muted mb-2">第一步：上传原图</div>
+            <div className="text-sm text-fg-muted mb-2">{t('inpaint.step1')}</div>
             <input
               type="file"
               accept="image/*"
@@ -195,22 +195,22 @@ export default function InpaintPage() {
         <>
           <section className="card space-y-3">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">第二步：涂抹要重画的区域</div>
+              <div className="text-sm font-medium">{t('inpaint.step2')}</div>
               <button
                 onClick={() => { setRefImageUrl(''); setRefImageFile(null); setMaskBlob(null); setRefImageRemoteName(''); setProgress(null); }}
                 className="text-xs text-fg-muted hover:text-fg"
               >
-                ← 重选图片
+                {t('inpaint.reselect')}
               </button>
             </div>
             <MaskCanvas imageUrl={refImageUrl} onMaskChange={setMaskBlob} />
           </section>
 
           <section className="card space-y-4">
-            <div className="text-sm font-medium">第三步：描述新内容</div>
+            <div className="text-sm font-medium">{t('inpaint.step3')}</div>
 
             <div>
-              <label className="label">模型 (checkpoint)</label>
+              <label className="label">{t('gen.model')}</label>
               <select
                 className="input"
                 value={checkpoint}
@@ -218,27 +218,27 @@ export default function InpaintPage() {
                 disabled={checkpoints.length === 0}
               >
                 {checkpoints.length === 0
-                  ? <option>暂无可用模型</option>
+                  ? <option>{t('inpaint.noModels')}</option>
                   : checkpoints.map((c) => <option key={c} value={c}>{c}</option>)
                 }
               </select>
             </div>
 
             <div>
-              <label className="label">工作流</label>
+              <label className="label">{t('gen.workflow')}</label>
               <select className="input" value={workflowId} onChange={(e) => setWorkflowId(e.target.value)}>
                 {workflows.map((w) => <option key={w.id} value={w.id}>{w.name} · {w.vramHint}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="label">Prompt（描述涂抹区域换成什么）</label>
+              <label className="label">{t('inpaint.promptDesc')}</label>
               <textarea
                 rows={3}
                 className="input"
                 value={positive}
                 onChange={(e) => setPositive(e.target.value)}
-                placeholder="例：red silk evening gown, elegant lace details / 长发披肩 pink hair / sunset beach background"
+                placeholder={t('inpaint.promptPlaceholder')}
               />
             </div>
 
@@ -254,7 +254,7 @@ export default function InpaintPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="label">步数</label>
+                <label className="label">{t('gen.steps')}</label>
                 <input type="number" className="input" value={steps} onChange={(e) => setSteps(Number(e.target.value))} min={10} max={50} />
               </div>
               <div>
@@ -262,11 +262,11 @@ export default function InpaintPage() {
                 <input type="number" className="input" value={cfg} onChange={(e) => setCfg(Number(e.target.value))} step={0.5} min={1} max={15} />
               </div>
               <div className="col-span-2">
-                <label className="label">Denoise {denoise.toFixed(2)} <span className="text-xs text-fg-subtle">（1.0 = 完全替换；&lt;1 = 保留原图细节）</span></label>
+                <label className="label">Denoise {denoise.toFixed(2)} <span className="text-xs text-fg-subtle">{t('inpaint.denoiseHint')}</span></label>
                 <input type="range" className="w-full accent-accent" min={0.3} max={1} step={0.05} value={denoise} onChange={(e) => setDenoise(Number(e.target.value))} />
               </div>
               <div>
-                <label className="label">Seed（0 = 随机）</label>
+                <label className="label">{t('gen.seedPlaceholder')}</label>
                 <input type="number" className="input" value={seed} onChange={(e) => setSeed(Number(e.target.value))} />
               </div>
             </div>
@@ -283,7 +283,7 @@ export default function InpaintPage() {
               onClick={submit}
               className="btn-primary w-full py-3 text-base font-semibold"
             >
-              {submitting ? (uploading ? '上传中…' : `生成中… (${progress?.status ?? 'queued'})`) : '生成（1 积分）'}
+              {submitting ? (uploading ? t('inpaint.uploadingProgress') : `${t('inpaint.generatingProgress')} (${progress?.status ?? t('inpaint.queued')})`) : t('inpaint.submitBtn')}
             </button>
           </section>
         </>
@@ -292,7 +292,7 @@ export default function InpaintPage() {
       {/* Output */}
       {progress?.outputs && progress.outputs.length > 0 && (
         <section className="card">
-          <div className="text-sm font-medium mb-3">结果</div>
+          <div className="text-sm font-medium mb-3">{t('inpaint.resultTitle')}</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {progress.outputs.map((o) => (
               <a key={o.url} href={o.url} target="_blank" rel="noopener noreferrer" className="block">

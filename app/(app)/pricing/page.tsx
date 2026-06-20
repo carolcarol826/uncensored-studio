@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { SUBSCRIPTION_PLANS, TOPUP_PACKS } from '@/lib/plans';
+import { useT } from '@/components/I18nProvider';
 
 export default function PricingPage() {
+  const t = useT();
   const [user, setUser] = useState<{ id: string; credits: number } | null>(null);
   const [loading, setLoading] = useState<string>('');
   const [providers, setProviders] = useState<{ nowpayments: boolean; paddle: boolean }>({
@@ -43,10 +45,10 @@ export default function PricingPage() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Checkout failed');
+      if (!res.ok) throw new Error(data.error || t('pricing.checkoutFailed'));
       window.location.href = data.checkoutUrl || data.invoiceUrl;
     } catch (e: any) {
-      alert(e?.message || 'Checkout failed');
+      alert(e?.message || t('pricing.checkoutFailed'));
       setLoading('');
     }
   };
@@ -54,23 +56,19 @@ export default function PricingPage() {
   return (
     <div className="space-y-12">
       <header className="text-center space-y-3">
-        <h1 className="text-3xl font-bold">定价方案</h1>
-        <p className="text-fg-muted">
-          按月订阅或一次性充值。所有方案均可使用全部模型。
-        </p>
+        <h1 className="text-3xl font-bold">{t('pricing.title')}</h1>
+        <p className="text-fg-muted">{t('pricing.lead')}</p>
         {user && (
           <div className="inline-block bg-bg-card border border-bg-border rounded-full px-4 py-1.5 text-sm">
-            当前余额：<span className="text-accent font-semibold">{user.credits.toLocaleString()}</span> 积分
+            {t('pricing.currentBalance')}: <span className="text-accent font-semibold">{user.credits.toLocaleString()}</span> {t('pricing.creditsUnit')}
           </div>
         )}
       </header>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">月度订阅</h2>
+        <h2 className="text-xl font-semibold">{t('pricing.monthlySub')}</h2>
         <p className="text-sm text-fg-muted">
-          {providers.paddle
-            ? '按月自动续费，可随时取消。信用卡 / Apple Pay / Google Pay 通过 Paddle 结算。'
-            : '订阅功能需 Paddle 接入后启用。当前可使用下方加密支付一次性充值。'}
+          {providers.paddle ? t('pricing.monthlySubReady') : t('pricing.monthlySubPending')}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {SUBSCRIPTION_PLANS.map((p) => {
@@ -86,22 +84,22 @@ export default function PricingPage() {
             >
               {p.recommended && (
                 <div className="self-start text-[10px] bg-accent text-white px-2 py-0.5 rounded mb-2 font-semibold">
-                  推荐
+                  {t('pricing.recommended')}
                 </div>
               )}
               <h3 className="font-semibold">{p.name}</h3>
               <div className="mt-2 mb-1">
                 {p.priceUsd === 0 ? (
-                  <span className="text-2xl font-bold">免费</span>
+                  <span className="text-2xl font-bold">{t('pricing.free')}</span>
                 ) : (
                   <>
                     <span className="text-2xl font-bold">${p.priceUsd}</span>
-                    <span className="text-sm text-fg-muted"> / 月</span>
+                    <span className="text-sm text-fg-muted">{t('pricing.perMonth')}</span>
                   </>
                 )}
               </div>
               <div className="text-sm text-fg-muted mb-4">
-                {p.monthlyCredits} 积分 / 月
+                {p.monthlyCredits} {t('pricing.creditsPerMonth')}
               </div>
               <ul className="space-y-1.5 text-sm text-fg-muted mb-4 flex-1">
                 {p.features.map((f) => (
@@ -113,7 +111,7 @@ export default function PricingPage() {
               </ul>
               {p.priceUsd === 0 ? (
                 <button disabled className="btn-secondary opacity-50 cursor-not-allowed">
-                  注册即送
+                  {t('pricing.signupGift')}
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -123,15 +121,14 @@ export default function PricingPage() {
                       disabled={subLoadingPaddle}
                       className="btn-primary w-full"
                     >
-                      {subLoadingPaddle ? '跳转中…' : '订阅（信用卡）'}
+                      {subLoadingPaddle ? t('pricing.redirecting') : t('pricing.subCard')}
                     </button>
                   ) : (
                     <button
                       disabled
                       className="btn-secondary opacity-50 cursor-not-allowed w-full"
-                      title={providers.paddle ? 'Paddle price 未配置' : 'Paddle 未启用'}
                     >
-                      Paddle 待上线
+                      {t('pricing.paddlePending')}
                     </button>
                   )}
                   {providers.nowpayments && (
@@ -140,7 +137,7 @@ export default function PricingPage() {
                       disabled={subLoadingCrypto}
                       className="btn-secondary w-full text-xs"
                     >
-                      {subLoadingCrypto ? '跳转中…' : '加密一次性付款（无自动续费）'}
+                      {subLoadingCrypto ? t('pricing.redirecting') : t('pricing.cryptoOneTime')}
                     </button>
                   )}
                 </div>
@@ -152,42 +149,39 @@ export default function PricingPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">一次性充值（加密支付）</h2>
-        <p className="text-sm text-fg-muted">
-          支持 USDT / USDC / BTC / ETH / TRON / SOL 等 100+ 种加密货币。秒到账。
-        </p>
+        <h2 className="text-xl font-semibold">{t('pricing.topupTitle')}</h2>
+        <p className="text-sm text-fg-muted">{t('pricing.topupLead')}</p>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {TOPUP_PACKS.map((t) => (
-            <div key={t.id} className="card flex flex-col">
+          {TOPUP_PACKS.map((tp) => (
+            <div key={tp.id} className="card flex flex-col">
               <div className="text-2xl font-bold">
-                {t.credits.toLocaleString()}
-                <span className="text-sm font-normal text-fg-muted"> 积分</span>
+                {tp.credits.toLocaleString()}
+                <span className="text-sm font-normal text-fg-muted"> {t('pricing.creditsUnit')}</span>
               </div>
-              {t.bonus && (
-                <div className="text-xs text-warning mt-1">额外 {t.bonus}</div>
+              {tp.bonus && (
+                <div className="text-xs text-warning mt-1">{t('pricing.bonusExtra')} {tp.bonus}</div>
               )}
               <div className="mt-3 mb-4 text-fg-muted text-sm">
-                <span className="text-fg text-xl font-semibold">${t.priceUsd}</span>{' '}
-                / 一次
+                <span className="text-fg text-xl font-semibold">${tp.priceUsd}</span>{t('pricing.perOne')}
               </div>
               <div className="text-xs text-fg-subtle mb-4">
-                单价 ${(t.priceUsd / (t.credits + (t.bonus ? Number(t.bonus.replace(/\D/g, '')) || 0 : 0))).toFixed(4)} / 积分
+                {t('pricing.unitPrice')} ${(tp.priceUsd / (tp.credits + (tp.bonus ? Number(tp.bonus.replace(/\D/g, '')) || 0 : 0))).toFixed(4)}{t('pricing.perCredit')}
               </div>
               <div className="space-y-2">
                 <button
-                  onClick={() => buy('topup', t.id, 'nowpayments')}
-                  disabled={loading === `nowpayments_topup_${t.id}`}
+                  onClick={() => buy('topup', tp.id, 'nowpayments')}
+                  disabled={loading === `nowpayments_topup_${tp.id}`}
                   className="btn-primary w-full"
                 >
-                  {loading === `nowpayments_topup_${t.id}` ? '跳转中…' : '加密支付'}
+                  {loading === `nowpayments_topup_${tp.id}` ? t('pricing.redirecting') : t('pricing.cryptoPay')}
                 </button>
-                {providers.paddle && t.paddlePriceId && (
+                {providers.paddle && tp.paddlePriceId && (
                   <button
-                    onClick={() => buy('topup', t.id, 'paddle')}
-                    disabled={loading === `paddle_topup_${t.id}`}
+                    onClick={() => buy('topup', tp.id, 'paddle')}
+                    disabled={loading === `paddle_topup_${tp.id}`}
                     className="btn-secondary w-full text-xs"
                   >
-                    {loading === `paddle_topup_${t.id}` ? '跳转中…' : '信用卡'}
+                    {loading === `paddle_topup_${tp.id}` ? t('pricing.redirecting') : t('pricing.cardPay')}
                   </button>
                 )}
               </div>
@@ -197,51 +191,43 @@ export default function PricingPage() {
       </section>
 
       <section className="card space-y-3 max-w-3xl mx-auto">
-        <h3 className="font-semibold">积分用途</h3>
+        <h3 className="font-semibold">{t('pricing.usageTitle')}</h3>
         <table className="w-full text-sm">
           <tbody>
             <tr className="border-b border-bg-border">
-              <td className="py-2 text-fg-muted">文生图 (SDXL / Flux)</td>
-              <td className="py-2 text-right">1 积分 / 张</td>
+              <td className="py-2 text-fg-muted">{t('pricing.usageT2i')}</td>
+              <td className="py-2 text-right">1 {t('pricing.perImage')}</td>
             </tr>
             <tr className="border-b border-bg-border">
-              <td className="py-2 text-fg-muted">图生图</td>
-              <td className="py-2 text-right">1 积分 / 张</td>
+              <td className="py-2 text-fg-muted">{t('pricing.usageI2i')}</td>
+              <td className="py-2 text-right">1 {t('pricing.perImage')}</td>
             </tr>
             <tr className="border-b border-bg-border">
-              <td className="py-2 text-fg-muted">角色一致性 (PuLID)</td>
-              <td className="py-2 text-right">3 积分 / 张</td>
+              <td className="py-2 text-fg-muted">{t('pricing.usageChar')}</td>
+              <td className="py-2 text-right">3 {t('pricing.perImage')}</td>
             </tr>
             <tr className="border-b border-bg-border">
-              <td className="py-2 text-fg-muted">图生视频 (Wan 2.2)</td>
-              <td className="py-2 text-right">10 积分 / 段</td>
+              <td className="py-2 text-fg-muted">{t('pricing.usageI2v')}</td>
+              <td className="py-2 text-right">10 {t('pricing.perClip')}</td>
             </tr>
             <tr>
-              <td className="py-2 text-fg-muted">文生视频 (Wan 2.2)</td>
-              <td className="py-2 text-right">12 积分 / 段</td>
+              <td className="py-2 text-fg-muted">{t('pricing.usageT2v')}</td>
+              <td className="py-2 text-right">12 {t('pricing.perClip')}</td>
             </tr>
           </tbody>
         </table>
-        <p className="text-xs text-fg-subtle">
-          高分辨率 (&gt; 1024×1024) 或长视频 (&gt; 49 帧) 按 2× 计费。
-        </p>
+        <p className="text-xs text-fg-subtle">{t('pricing.surchargeNote')}</p>
       </section>
 
       <section className="text-center text-sm text-fg-muted space-y-2">
         <p>
-          所有充值通过 <span className="text-fg">NowPayments</span> 处理，
-          我们不接触你的钱包/卡信息。
+          {t('pricing.paymentNote1Pre')} <span className="text-fg">NowPayments</span>{t('pricing.paymentNote1Post')}
         </p>
         <p>
-          有问题？查看{' '}
-          <a href="/legal/refund" className="text-accent hover:underline">
-            退款政策
-          </a>{' '}
-          或{' '}
-          <a href="mailto:support@example.com" className="text-accent hover:underline">
-            联系客服
-          </a>
-          。
+          {t('pricing.paymentNote2Pre')}{' '}
+          <a href="/legal/refund" className="text-accent hover:underline">{t('pricing.refundPolicy')}</a>
+          {' / '}
+          <a href="mailto:support@myhim.love" className="text-accent hover:underline">{t('pricing.contactSupport')}</a>
         </p>
       </section>
     </div>

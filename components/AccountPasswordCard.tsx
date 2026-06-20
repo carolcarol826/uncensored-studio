@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from './I18nProvider';
 
 export default function AccountPasswordCard() {
+  const t = useT();
   const [hasPassword, setHasPassword] = useState<boolean | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -32,7 +34,7 @@ export default function AccountPasswordCard() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '保存失败');
+      if (!res.ok) throw new Error(data.error || t('settings.pwSaveFailed'));
       setDone(true);
       setHasPassword(true);
       setCurrentPassword('');
@@ -47,20 +49,20 @@ export default function AccountPasswordCard() {
   return (
     <div className="card space-y-4">
       <div>
-        <h2 className="font-semibold">账户安全</h2>
+        <h2 className="font-semibold">{t('settings.pwTitle')}</h2>
         <p className="text-sm text-fg-muted mt-1">
           {hasPassword === null
-            ? '加载中…'
+            ? t('settings.pwBodyLoading')
             : hasPassword
-            ? '修改你的登录密码。'
-            : '为账户设置一个登录密码（之后即可用「邮箱 + 密码」登录）。'}
+            ? t('settings.pwBodyChange')
+            : t('settings.pwBodySet')}
         </p>
       </div>
 
       <form onSubmit={submit} className="space-y-3 max-w-sm">
         {hasPassword && (
           <div>
-            <label className="label">当前密码</label>
+            <label className="label">{t('settings.pwCurrent')}</label>
             <input
               type="password"
               required
@@ -72,7 +74,7 @@ export default function AccountPasswordCard() {
           </div>
         )}
         <div>
-          <label className="label">{hasPassword ? '新密码' : '设置密码'}</label>
+          <label className="label">{hasPassword ? t('settings.pwNew') : t('settings.pwSet')}</label>
           <input
             type="password"
             required
@@ -81,7 +83,7 @@ export default function AccountPasswordCard() {
             className="input"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="至少 8 位"
+            placeholder={t('settings.pwPlaceholder')}
           />
         </div>
 
@@ -91,7 +93,7 @@ export default function AccountPasswordCard() {
           </div>
         )}
         {done && (
-          <div className="text-sm text-success">✓ 密码已更新</div>
+          <div className="text-sm text-success">{t('settings.pwDone')}</div>
         )}
 
         <button
@@ -99,7 +101,7 @@ export default function AccountPasswordCard() {
           disabled={saving || hasPassword === null}
           className="btn-primary"
         >
-          {saving ? '保存中…' : hasPassword ? '修改密码' : '设置密码'}
+          {saving ? t('common.saving') : hasPassword ? t('settings.pwChangeBtn') : t('settings.pwSetPwd')}
         </button>
       </form>
     </div>

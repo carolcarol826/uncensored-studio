@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from './I18nProvider';
 
 export type Mode = 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet';
 export type ControlType = 'openpose' | 'depth' | 'canny';
@@ -22,7 +23,8 @@ interface Output {
 
 interface Props {
   mode: Mode;
-  title: string;
+  /** Override the auto-resolved title. Kept for legacy callers; new code can omit. */
+  title?: string;
   showNegative?: boolean;
   showImageUpload?: boolean;
   showDenoise?: boolean;
@@ -46,13 +48,24 @@ export default function GeneratorForm({
   showVideoParams = false,
   showPulidWeight = false,
   showControlType = false,
-  imageLabel = '参考图',
+  imageLabel,
   defaultWidth = 1024,
   defaultHeight = 1024,
   defaultSteps = 25,
   defaultCfg = 7,
   defaultBatchSize = 1,
 }: Props) {
+  const t = useT();
+  const effectiveImageLabel = imageLabel ?? t('gen.refImage');
+  const titleByMode: Record<Mode, string> = {
+    text2img: t('gen.page.text2imgTitle'),
+    img2img: t('gen.page.img2imgTitle'),
+    img2video: t('gen.page.img2videoTitle'),
+    text2video: t('gen.page.text2videoTitle'),
+    character: t('gen.page.characterTitle'),
+    controlnet: t('gen.page.controlnetTitle'),
+  };
+  const effectiveTitle = title ?? titleByMode[mode];
   const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
   const [checkpoints, setCheckpoints] = useState<string[]>([]);
   const [comfyOnline, setComfyOnline] = useState<boolean>(true);
@@ -103,7 +116,7 @@ export default function GeneratorForm({
           if (h.checkpoints[0]) setCheckpoint(h.checkpoints[0]);
         }
       } catch (e) {
-        setError(`初始化失败：${(e as Error).message}`);
+        setError(`${t('gen.initFailed')}: ${(e as Error).message}`);
       }
     })();
   }, [mode]);
@@ -120,7 +133,7 @@ export default function GeneratorForm({
       setInputImage(data.filename);
       setInputImagePreview(URL.createObjectURL(file));
     } catch (e: any) {
-      setError(`上传失败：${e.message}`);
+      setError(`${t('gen.uploadFailed')}: ${e.message}`);
     } finally {
       setUploading(false);
     }
@@ -131,15 +144,15 @@ export default function GeneratorForm({
     setProgress(null);
 
     if (!checkpoint) {
-      setError('请先在设置或下拉框中选择模型');
+      setError(t('gen.pickModelFirst'));
       return;
     }
     if (!positive.trim()) {
-      setError('请输入 Prompt');
+      setError(t('gen.promptRequired'));
       return;
     }
     if (showImageUpload && !inputImage) {
-      setError('请先上传参考图');
+      setError(t('gen.refRequired'));
       return;
     }
 
@@ -178,13 +191,13 @@ export default function GeneratorForm({
         return;
       }
       if (res.status === 402) {
-        setError(`积分不足（需 ${data.required}，余 ${data.balance}）`);
+        setError(`${t('gen.insufficientCreditsPre')}${data.required}${t('gen.insufficientCreditsMid')}${data.balance}${t('gen.insufficientCreditsPost')}`);
         setTimeout(() => (window.location.href = '/pricing'), 1500);
         setSubmitting(false);
         return;
       }
       if (res.status === 403) {
-        setError(data.error || '请先确认 18+');
+        setError(data.error || t('gen.confirmAgeFirst'));
         setSubmitting(false);
         return;
       }
@@ -220,7 +233,7 @@ export default function GeneratorForm({
           return;
         }
         if (d.status === 'failed') {
-          setError(d.error || '生成失败');
+          setError(d.error || t('gen.genFailed'));
           setSubmitting(false);
           return;
         }
@@ -230,19 +243,19 @@ export default function GeneratorForm({
       await new Promise((res) => setTimeout(res, 1500));
     }
     setSubmitting(false);
-    setError('生成超时');
+    setError(t('gen.genTimeout'));
   };
 
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold">{title}</h1>
+        <h1 className="text-2xl font-bold">{effectiveTitle}</h1>
         <p className="text-sm text-fg-muted">
-          {mode === 'text2img' && '输入 prompt，从 SDXL / Flux 模型生成图片'}
-          {mode === 'img2img' && '上传参考图，结合 prompt 重绘'}
-          {mode === 'img2video' && '上传图，让它根据 prompt 动起来（Wan 2.2 I2V）'}
-          {mode === 'text2video' && '纯文本到视频（Wan 2.2 TI2V-5B）'}
-          {mode === 'character' && '上传一张人脸，生成同一角色的多种场景（PuLID）'}
+          {mode === 'text2img' && t('gen.page.text2imgDesc')}
+          {mode === 'img2img' && t('gen.page.img2imgDesc')}
+          {mode === 'img2video' && t('gen.page.img2videoDesc')}
+          {mode === 'text2video' && t('gen.page.text2videoDesc')}
+          {mode === 'character' && t('gen.page.characterDesc')}
         </p>
       </header>
 
@@ -251,14 +264,9 @@ export default function GeneratorForm({
           <div className="flex items-start gap-3">
             <div className="text-2xl">🚀</div>
             <div className="flex-1">
-              <div className="text-accent font-medium">生成服务部署中</div>
-              <div className="text-sm text-fg-muted mt-1">
-                GPU 推理后端正在初始化，预计 24 小时内开放生成功能。
-                你现在可以浏览所有页面、注册账号、查看定价。
-              </div>
-              <div className="text-xs text-fg-subtle mt-2">
-                注册即赠 20 积分，开通后立即可用。
-              </div>
+              <div className="text-accent font-medium">{t('gen.deploying')}</div>
+              <div className="text-sm text-fg-muted mt-1">{t('gen.deployingDesc')}</div>
+              <div className="text-xs text-fg-subtle mt-2">{t('gen.deployingSignup')}</div>
             </div>
           </div>
         </div>
@@ -267,7 +275,7 @@ export default function GeneratorForm({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div>
-            <label className="label">工作流</label>
+            <label className="label">{t('gen.workflow')}</label>
             <select
               className="input"
               value={workflowId}
@@ -281,14 +289,14 @@ export default function GeneratorForm({
             </select>
             {workflows.find((w) => w.id === workflowId)?.requiredCustomNodes && (
               <div className="text-xs text-warning mt-1">
-                需要自定义节点：
+                {t('gen.requiredNodes')}:{' '}
                 {workflows.find((w) => w.id === workflowId)!.requiredCustomNodes!.join(', ')}
               </div>
             )}
           </div>
 
           <div>
-            <label className="label">模型 (checkpoint)</label>
+            <label className="label">{t('gen.model')}</label>
             <select
               className="input"
               value={checkpoint}
@@ -296,7 +304,7 @@ export default function GeneratorForm({
               disabled={checkpoints.length === 0}
             >
               {checkpoints.length === 0 ? (
-                <option>（未发现已安装模型）</option>
+                <option>{t('gen.noModels')}</option>
               ) : (
                 checkpoints.map((c) => (
                   <option key={c} value={c}>
@@ -309,14 +317,14 @@ export default function GeneratorForm({
 
           {showImageUpload && (
             <div>
-              <label className="label">{imageLabel}</label>
+              <label className="label">{effectiveImageLabel}</label>
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
                 className="block w-full text-sm text-fg-muted file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-bg-card file:text-fg hover:file:bg-bg-elevated"
               />
-              {uploading && <div className="text-xs text-fg-muted mt-1">上传中…</div>}
+              {uploading && <div className="text-xs text-fg-muted mt-1">{t('gen.uploading')}</div>}
               {inputImagePreview && (
                 <img
                   src={inputImagePreview}
@@ -328,12 +336,12 @@ export default function GeneratorForm({
           )}
 
           <div>
-            <label className="label">Prompt（正向）</label>
+            <label className="label">{t('gen.promptPositive')}</label>
             <textarea
               className="input min-h-[100px] resize-y"
               value={positive}
               onChange={(e) => setPositive(e.target.value)}
-              placeholder="描述你想生成的内容"
+              placeholder={t('gen.promptPlaceholder')}
             />
           </div>
 
@@ -352,7 +360,7 @@ export default function GeneratorForm({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">宽</label>
+              <label className="label">{t('gen.width')}</label>
               <input
                 type="number"
                 className="input"
@@ -362,7 +370,7 @@ export default function GeneratorForm({
               />
             </div>
             <div>
-              <label className="label">高</label>
+              <label className="label">{t('gen.height')}</label>
               <input
                 type="number"
                 className="input"
@@ -375,7 +383,7 @@ export default function GeneratorForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">步数</label>
+              <label className="label">{t('gen.steps')}</label>
               <input
                 type="number"
                 className="input"
@@ -397,7 +405,7 @@ export default function GeneratorForm({
 
           {showDenoise && (
             <div>
-              <label className="label">Denoise（图生图重绘强度）{denoise}</label>
+              <label className="label">{t('gen.denoisePre')} {denoise}</label>
               <input
                 type="range"
                 min={0}
@@ -412,7 +420,7 @@ export default function GeneratorForm({
 
           {showPulidWeight && (
             <div>
-              <label className="label">PuLID 强度 {pulidWeight}（建议 0.8-1.0）</label>
+              <label className="label">{t('gen.pulidPre')} {pulidWeight}{t('gen.pulidHint')}</label>
               <input
                 type="range"
                 min={0}
@@ -422,33 +430,31 @@ export default function GeneratorForm({
                 onChange={(e) => setPulidWeight(Number(e.target.value))}
                 className="w-full accent-accent"
               />
-              <div className="text-xs text-fg-subtle mt-1">
-                越高越像参考脸，但可能降低 prompt 自由度
-              </div>
+              <div className="text-xs text-fg-subtle mt-1">{t('gen.pulidNote')}</div>
             </div>
           )}
 
           {showControlType && (
             <>
               <div>
-                <label className="label">控制类型</label>
+                <label className="label">{t('gen.controlType')}</label>
                 <select
                   className="input"
                   value={controlType}
                   onChange={(e) => setControlType(e.target.value as ControlType)}
                 >
-                  <option value="openpose">OpenPose 姿势 — 复刻人物动作</option>
-                  <option value="depth">Depth 深度 — 保留场景空间结构</option>
-                  <option value="canny">Canny 边缘 — 严格按线稿生成</option>
+                  <option value="openpose">{t('gen.ctOpenposeOpt')}</option>
+                  <option value="depth">{t('gen.ctDepthOpt')}</option>
+                  <option value="canny">{t('gen.ctCannyOpt')}</option>
                 </select>
                 <div className="text-xs text-fg-subtle mt-1">
-                  {controlType === 'openpose' && '上传一张人物图 → AI 提取骨架 → 在你的 prompt 描述下复刻姿势'}
-                  {controlType === 'depth' && '上传任意图 → AI 提取深度 → 按你的 prompt 重画但保留空间布局'}
-                  {controlType === 'canny' && '上传任意图 → AI 提取边缘线 → 严格沿线条生成'}
+                  {controlType === 'openpose' && t('gen.ctOpenposeDesc')}
+                  {controlType === 'depth' && t('gen.ctDepthDesc')}
+                  {controlType === 'canny' && t('gen.ctCannyDesc')}
                 </div>
               </div>
               <div>
-                <label className="label">控制强度 {controlStrength.toFixed(2)}（建议 0.7-0.9）</label>
+                <label className="label">{t('gen.ctStrengthPre')} {controlStrength.toFixed(2)}{t('gen.ctStrengthHint')}</label>
                 <input
                   type="range"
                   min={0}
@@ -458,16 +464,14 @@ export default function GeneratorForm({
                   onChange={(e) => setControlStrength(Number(e.target.value))}
                   className="w-full accent-accent"
                 />
-                <div className="text-xs text-fg-subtle mt-1">
-                  越高越严格按参考图，越低越靠 prompt 自由发挥
-                </div>
+                <div className="text-xs text-fg-subtle mt-1">{t('gen.ctStrengthNote')}</div>
               </div>
             </>
           )}
 
           {showVideoParams && (
             <div>
-              <label className="label">帧数（16 fps，约 {(numFrames / 16).toFixed(1)}s）</label>
+              <label className="label">{t('gen.framesPre')}{(numFrames / 16).toFixed(1)}{t('gen.framesPost')}</label>
               <input
                 type="number"
                 className="input"
@@ -482,7 +486,7 @@ export default function GeneratorForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Seed（0 = 随机）</label>
+              <label className="label">{t('gen.seedPlaceholder')}</label>
               <input
                 type="number"
                 className="input"
@@ -492,7 +496,7 @@ export default function GeneratorForm({
             </div>
             {!showImageUpload && !showVideoParams && (
               <div>
-                <label className="label">批次</label>
+                <label className="label">{t('gen.batch')}</label>
                 <input
                   type="number"
                   className="input"
@@ -510,14 +514,14 @@ export default function GeneratorForm({
             onClick={submit}
             disabled={submitting || !comfyOnline}
           >
-            {submitting ? '生成中…' : '生成'}
+            {submitting ? t('gen.generating') : t('gen.generate')}
           </button>
         </div>
       </div>
 
       {error && (
         <div className="card border-danger/30 bg-danger/5">
-          <div className="text-sm text-danger font-medium">错误</div>
+          <div className="text-sm text-danger font-medium">{t('gen.error')}</div>
           <div className="text-sm text-fg-muted mt-1 font-mono whitespace-pre-wrap">{error}</div>
         </div>
       )}
@@ -527,7 +531,7 @@ export default function GeneratorForm({
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <div className="font-medium text-fg">
-                状态：<span className="text-accent">{progress.status}</span>
+                {t('gen.statusPrefix')}<span className="text-accent">{progress.status}</span>
               </div>
               {progress.queueInfo && (
                 <div className="text-xs text-fg-subtle mt-1">{progress.queueInfo}</div>

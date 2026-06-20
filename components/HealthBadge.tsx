@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from './I18nProvider';
 
 interface Health {
   ok?: boolean;
@@ -18,6 +19,7 @@ interface Health {
 }
 
 export default function HealthBadge() {
+  const t = useT();
   const [health, setHealth] = useState<Health | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +30,7 @@ export default function HealthBadge() {
       const data = await res.json();
       setHealth(data);
     } catch {
-      setHealth({ ok: false, error: 'API unreachable' });
+      setHealth({ ok: false, error: t('health.apiUnreachable') });
     } finally {
       setLoading(false);
     }
@@ -36,15 +38,16 @@ export default function HealthBadge() {
 
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, 30_000);
-    return () => clearInterval(t);
+    const interval = setInterval(refresh, 30_000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading && !health) {
     return (
       <div className="card flex items-center gap-3">
         <div className="w-2 h-2 rounded-full bg-fg-subtle animate-pulse" />
-        <div className="text-sm text-fg-muted">系统检测中…</div>
+        <div className="text-sm text-fg-muted">{t('health.detectInProgress')}</div>
       </div>
     );
   }
@@ -58,8 +61,8 @@ export default function HealthBadge() {
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
             <div className="text-sm text-fg">
-              <span className="text-success font-medium">服务运行中</span>
-              <span className="text-fg-muted ml-2">· GPU 后端在线</span>
+              <span className="text-success font-medium">{t('health.serviceRunning')}</span>
+              <span className="text-fg-muted ml-2">{t('health.gpuOnline')}</span>
             </div>
           </div>
         </div>
@@ -70,17 +73,14 @@ export default function HealthBadge() {
         <div className="flex items-start gap-3">
           <div className="text-2xl">🚀</div>
           <div className="flex-1">
-            <div className="font-medium text-accent">服务初始化中</div>
-            <div className="text-sm text-fg-muted mt-1">
-              GPU 推理后端正在部署。注册、定价、登录等功能现已可用；
-              生成功能预计 24 小时内开放。
-            </div>
+            <div className="font-medium text-accent">{t('health.deployingTitle')}</div>
+            <div className="text-sm text-fg-muted mt-1">{t('health.deployingDescProd')}</div>
             <div className="text-xs text-fg-subtle mt-2">
-              想第一时间收到通知？
+              {t('health.notifyPre')}
               <a href="/login" className="text-accent hover:underline ml-1">
-                免费注册
+                {t('health.notifySignup')}
               </a>
-              ，开通即送 20 积分。
+              {t('health.notifySuffix')}
             </div>
           </div>
         </div>
@@ -95,9 +95,9 @@ export default function HealthBadge() {
         <div className="flex items-start gap-3">
           <div className="w-2 h-2 mt-2 rounded-full bg-warning" />
           <div className="flex-1">
-            <div className="font-medium text-warning">本地 ComfyUI 未连接</div>
+            <div className="font-medium text-warning">{t('health.localOffline')}</div>
             <div className="text-sm text-fg-muted mt-1">
-              地址：<code className="font-mono">{health.url ?? '?'}</code>
+              {t('health.localOfflineAddr')}: <code className="font-mono">{health.url ?? '?'}</code>
               {health.error && (
                 <span className="block mt-1 text-xs text-fg-subtle">
                   {health.error}
@@ -105,17 +105,15 @@ export default function HealthBadge() {
               )}
             </div>
             <div className="text-sm mt-3 text-fg-muted">
-              请先启动 ComfyUI（默认{' '}
-              <code className="font-mono">http://127.0.0.1:8188</code>）。
-              详见{' '}
+              {t('health.localOfflineHelpPre')}{' '}
               <a href="/settings" className="text-accent hover:underline">
-                设置
+                {t('health.localOfflineHelpLink')}
               </a>
-              。
+              {t('health.localOfflineHelpPost')}
             </div>
           </div>
           <button onClick={refresh} className="btn-ghost text-xs">
-            重试
+            {t('health.retry')}
           </button>
         </div>
       </div>
@@ -128,7 +126,7 @@ export default function HealthBadge() {
       <div className="flex items-start gap-3">
         <div className="w-2 h-2 mt-2 rounded-full bg-success animate-pulse" />
         <div className="flex-1">
-          <div className="font-medium text-success">本地 ComfyUI 已连接</div>
+          <div className="font-medium text-success">{t('health.localOnline')}</div>
           <div className="text-sm text-fg-muted mt-1 font-mono">
             {health.url}
           </div>
@@ -137,18 +135,18 @@ export default function HealthBadge() {
               GPU: <span className="text-fg">{device.name}</span>
               {device.vram_total != null && (
                 <span className="ml-2 text-fg-subtle">
-                  显存：{(device.vram_free! / 1024 / 1024 / 1024).toFixed(1)} /{' '}
+                  {t('health.vram')}: {(device.vram_free! / 1024 / 1024 / 1024).toFixed(1)} /{' '}
                   {(device.vram_total / 1024 / 1024 / 1024).toFixed(1)} GB
                 </span>
               )}
             </div>
           )}
           <div className="text-xs text-fg-subtle mt-2">
-            已加载 {health.checkpoints?.length ?? 0} 个 checkpoint
+            {t('health.checkpointsLoaded', { n: health.checkpoints?.length ?? 0 })}
           </div>
         </div>
         <button onClick={refresh} className="btn-ghost text-xs">
-          刷新
+          {t('health.refresh')}
         </button>
       </div>
     </div>

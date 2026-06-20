@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AccountPasswordCard from '@/components/AccountPasswordCard';
+import { useT, useLocale } from '@/components/I18nProvider';
 
 interface Settings {
   comfyUrl: string;
@@ -15,6 +16,8 @@ interface Settings {
 }
 
 export default function SettingsPage() {
+  const t = useT();
+  const locale = useLocale();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -49,7 +52,7 @@ export default function SettingsPage() {
   };
 
   if (!settings) {
-    return <div className="text-fg-muted">加载中…</div>;
+    return <div className="text-fg-muted">{t('common.loading')}</div>;
   }
 
   const update = <K extends keyof Settings>(k: K, v: Settings[K]) =>
@@ -58,34 +61,31 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <header>
-        <h1 className="text-2xl font-bold">设置</h1>
-        <p className="text-sm text-fg-muted mt-1">配置保存在 <code className="font-mono">data/settings.json</code></p>
+        <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
+        <p className="text-sm text-fg-muted mt-1">{t('settings.storedAt')}: <code className="font-mono">data/settings.json</code></p>
       </header>
 
       <AccountPasswordCard />
 
       <div className="card space-y-4">
-        <h2 className="font-semibold">ComfyUI 后端</h2>
+        <h2 className="font-semibold">{t('settings.backendTitle')}</h2>
         <div>
-          <label className="label">ComfyUI 地址</label>
+          <label className="label">{t('settings.comfyAddr')}</label>
           <input
             className="input"
             value={settings.comfyUrl}
             onChange={(e) => update('comfyUrl', e.target.value)}
             placeholder="http://127.0.0.1:8188"
           />
-          <div className="text-xs text-fg-subtle mt-1">
-            默认 <code className="font-mono">http://127.0.0.1:8188</code>。
-            ComfyUI 启动方式：<code className="font-mono">python main.py --listen 127.0.0.1 --port 8188</code>
-          </div>
+          <div className="text-xs text-fg-subtle mt-1">{t('settings.comfyHint')}</div>
         </div>
       </div>
 
       <div className="card space-y-4">
-        <h2 className="font-semibold">默认生成参数</h2>
+        <h2 className="font-semibold">{t('settings.defaultsTitle')}</h2>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">默认步数</label>
+            <label className="label">{t('settings.defSteps')}</label>
             <input
               type="number"
               className="input"
@@ -94,7 +94,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="label">默认 CFG</label>
+            <label className="label">{t('settings.defCfg')}</label>
             <input
               type="number"
               className="input"
@@ -104,7 +104,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="label">默认宽</label>
+            <label className="label">{t('settings.defWidth')}</label>
             <input
               type="number"
               className="input"
@@ -113,7 +113,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="label">默认高</label>
+            <label className="label">{t('settings.defHeight')}</label>
             <input
               type="number"
               className="input"
@@ -122,7 +122,7 @@ export default function SettingsPage() {
             />
           </div>
           <div className="col-span-2">
-            <label className="label">默认批次</label>
+            <label className="label">{t('settings.defBatch')}</label>
             <input
               type="number"
               className="input"
@@ -134,62 +134,29 @@ export default function SettingsPage() {
       </div>
 
       <div className="card space-y-3">
-        <h2 className="font-semibold text-fg-muted text-sm uppercase">资源链接</h2>
+        <h2 className="font-semibold text-fg-muted text-sm uppercase">{t('settings.resourcesTitle')}</h2>
         <ul className="text-sm space-y-2">
           <li>
-            <a
-              href="https://github.com/comfyanonymous/ComfyUI"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:underline"
-            >
-              ComfyUI 仓库
+            <a href="https://github.com/comfyanonymous/ComfyUI" target="_blank" rel="noreferrer" className="text-accent hover:underline">
+              {t('settings.resComfy')}
             </a>
-            <span className="text-fg-subtle"> — Windows 一键启动包推荐</span>
+            <span className="text-fg-subtle">{t('settings.resComfyDesc')}</span>
           </li>
           <li>
-            <a
-              href="https://civitai.com"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:underline"
-            >
-              CivitAI
-            </a>
-            <span className="text-fg-subtle"> — 主流 checkpoint 与 LoRA 来源（SFW）</span>
+            <a href="https://civitai.com" target="_blank" rel="noreferrer" className="text-accent hover:underline">CivitAI</a>
+            <span className="text-fg-subtle">{t('settings.resCivitDesc')}</span>
           </li>
           <li>
-            <a
-              href="https://civitai.red"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:underline"
-            >
-              CivitAI.red
-            </a>
-            <span className="text-fg-subtle"> — NSFW 子站</span>
+            <a href="https://civitai.red" target="_blank" rel="noreferrer" className="text-accent hover:underline">CivitAI.red</a>
+            <span className="text-fg-subtle">{t('settings.resCivitRedDesc')}</span>
           </li>
           <li>
-            <a
-              href="https://huggingface.co/Wan-AI"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:underline"
-            >
-              Wan 2.2 (HuggingFace)
-            </a>
-            <span className="text-fg-subtle"> — 视频模型权重</span>
+            <a href="https://huggingface.co/Wan-AI" target="_blank" rel="noreferrer" className="text-accent hover:underline">Wan 2.2 (HuggingFace)</a>
+            <span className="text-fg-subtle">{t('settings.resWanDesc')}</span>
           </li>
           <li>
-            <a
-              href="https://github.com/kijai/ComfyUI-WanVideoWrapper"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:underline"
-            >
-              ComfyUI-WanVideoWrapper
-            </a>
-            <span className="text-fg-subtle"> — 视频生成所需的自定义节点</span>
+            <a href="https://github.com/kijai/ComfyUI-WanVideoWrapper" target="_blank" rel="noreferrer" className="text-accent hover:underline">ComfyUI-WanVideoWrapper</a>
+            <span className="text-fg-subtle">{t('settings.resWrapperDesc')}</span>
           </li>
         </ul>
       </div>
@@ -200,11 +167,11 @@ export default function SettingsPage() {
 
       <div className="flex items-center gap-3">
         <button onClick={save} disabled={saving} className="btn-primary">
-          {saving ? '保存中…' : '保存设置'}
+          {saving ? t('common.saving') : t('settings.save')}
         </button>
         {savedAt && (
           <span className="text-xs text-fg-subtle">
-            已保存于 {new Date(savedAt).toLocaleTimeString()}
+            {t('settings.savedAt')} {new Date(savedAt).toLocaleTimeString(locale === 'en' ? 'en-US' : 'zh-CN')}
           </span>
         )}
       </div>

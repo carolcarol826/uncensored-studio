@@ -4,7 +4,6 @@ export default function Img2VideoPage() {
   return (
     <GeneratorForm
       mode="img2video"
-      title="图生视频"
       showImageUpload
       showVideoParams
       defaultWidth={832}

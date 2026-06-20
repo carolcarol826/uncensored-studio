@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from './I18nProvider';
 
 interface Data { code: string | null; count: number; signupBonus: number; referrerBonus: number }
 
 export default function ReferralCard() {
+  const t = useT();
   const [d, setD] = useState<Data | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -26,12 +28,11 @@ export default function ReferralCard() {
   return (
     <div className="card space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold">邀请好友 · 双方得积分</h2>
-        <span className="text-xs text-fg-muted">已邀请 <strong className="text-fg">{d.count}</strong> 人</span>
+        <h2 className="font-semibold">{t('referral.title')}</h2>
+        <span className="text-xs text-fg-muted">{t('referral.invited')} <strong className="text-fg">{d.count}</strong> {t('referral.invitedSuffix')}</span>
       </div>
       <p className="text-sm text-fg-muted">
-        分享链接：好友注册即得 <strong className="text-fg">{d.signupBonus}</strong> 积分；
-        你额外获得 <strong className="text-fg">{d.referrerBonus}</strong> 积分。
+        {t('referral.leadPre')} <strong className="text-fg">{d.signupBonus}</strong> {t('referral.leadMid')} <strong className="text-fg">{d.referrerBonus}</strong> {t('referral.leadPost')}
       </p>
       <div className="flex gap-2">
         <input
@@ -41,7 +42,7 @@ export default function ReferralCard() {
           className="input flex-1 font-mono text-sm"
         />
         <button onClick={copy} className="btn-primary shrink-0 text-sm whitespace-nowrap">
-          {copied ? '✓ 已复制' : '复制链接'}
+          {copied ? t('referral.copied') : t('referral.copy')}
         </button>
       </div>
     </div>
