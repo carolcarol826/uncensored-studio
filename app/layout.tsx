@@ -3,6 +3,7 @@ import './globals.css';
 import AgeGate from '@/components/AgeGate';
 import ReferralCapture from '@/components/ReferralCapture';
 import { Providers } from '@/components/Providers';
+import { getServerLocale } from '@/lib/i18n/server';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://myhim.love'),
@@ -50,13 +51,14 @@ const organizationJsonLd = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getServerLocale();
   return (
-    <html lang="zh-CN" className="dark" suppressHydrationWarning>
+    <html lang={locale === 'en' ? 'en' : 'zh-CN'} className="dark" suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"
@@ -67,7 +69,7 @@ export default function RootLayout({
         className="min-h-screen bg-bg text-fg antialiased"
         suppressHydrationWarning
       >
-        <Providers>
+        <Providers locale={locale}>
           {children}
           <AgeGate />
           <ReferralCapture />
