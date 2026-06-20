@@ -68,8 +68,19 @@ async function runChecks(): Promise<Check[]> {
   // CRON
   out.push({ name: 'Cron secret', ok: !!process.env.CRON_SECRET, detail: process.env.CRON_SECRET ? 'set — cron endpoints protected' : 'NOT set — cron endpoints publicly callable in dev' });
 
-  // Image moderation hook
-  out.push({ name: 'Image moderation (Tencent IMS)', ok: process.env.IMAGE_MODERATION_ENABLED === 'true', detail: process.env.IMAGE_MODERATION_ENABLED === 'true' ? 'enabled — outputs are scanned' : 'disabled — set IMAGE_MODERATION_ENABLED=true to enable' });
+  // Image moderation hook — must be EN + custom BizType (default policy blocks all NSFW)
+  const modEn = process.env.IMAGE_MODERATION_ENABLED === 'true';
+  const biz = process.env.IMS_BIZ_TYPE;
+  const customBiz = !!biz && biz !== 'default';
+  out.push({
+    name: 'Image moderation (Tencent IMS)',
+    ok: modEn && customBiz,
+    detail: !modEn
+      ? 'disabled — set IMAGE_MODERATION_ENABLED=true'
+      : !customBiz
+      ? `idle — custom BizType not set (current IMS_BIZ_TYPE=${biz ?? '<unset>'}). Default policy would block all NSFW; create a CSAM/Polity/Terror-only policy in console.cloud.tencent.com/cms and set IMS_BIZ_TYPE=<policy id>.`
+      : `enabled — outputs scanned with BizType=${biz}`,
+  });
 
   return out;
 }

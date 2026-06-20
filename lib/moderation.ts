@@ -13,7 +13,15 @@ export type Decision =
 interface IMSImageInput { url?: string; data?: Buffer }
 
 export function moderationEnabled(): boolean {
-  return process.env.IMAGE_MODERATION_ENABLED === 'true';
+  // Two-key safety: only run if explicitly enabled AND a custom BizType is set.
+  // The Tencent default BizType blocks all NSFW (which kills our uncensored
+  // site's UX). We refuse to use 'default' until ops creates a custom policy
+  // in the console that only flags CSAM / Polity / Terror and allows NSFW.
+  return (
+    process.env.IMAGE_MODERATION_ENABLED === 'true' &&
+    !!process.env.IMS_BIZ_TYPE &&
+    process.env.IMS_BIZ_TYPE !== 'default'
+  );
 }
 
 export async function moderateImage(input: IMSImageInput): Promise<Decision> {
@@ -28,7 +36,11 @@ export async function moderateImage(input: IMSImageInput): Promise<Decision> {
     return { action: 'block', reason: 'moderation misconfigured (no Tencent keys)', label: 'CONFIG_ERROR' };
   }
 
-  const payload: Record<string, unknown> = { BizType: 'default' };
+  // BizType selects which Tencent IMS policy applies. Override via env to
+  // a custom policy (e.g. one that only flags CSAM / Polity / Terror and
+  // allows ordinary NSFW for our uncensored AI site).
+  const bizType = process.env.IMS_BIZ_TYPE || 'default';
+  const payload: Record<string, unknown> = { BizType: bizType };
   if (input.url) payload.FileUrl = input.url;
   else if (input.data) payload.FileContent = input.data.toString('base64');
   else return { action: 'allow' }; // nothing to scan
