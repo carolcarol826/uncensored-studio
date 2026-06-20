@@ -10,6 +10,7 @@ import { updateGenerationStatus, addOutputFile, addCredits } from './store';
 import { ingestFromUrl, getPublicUrl } from './storage';
 import { isDbSkipped, prisma } from './db';
 import { sendGenerationReadyEmail } from './notify';
+import { moderateImage, moderationEnabled } from './moderation';
 
 export type OutFile = { url: string; type: 'image' | 'video'; filename: string };
 
@@ -18,6 +19,15 @@ export interface FinalizeResult {
   completed: boolean;
   error?: string;
   outputs: OutFile[];
+}
+
+async function fetchAsBuffer(url: string): Promise<Buffer> {
+  // data: URLs (RunPod base64) — decode in-process; no network.
+  const m = url.match(/^data:[^;]+;base64,(.+)$/);
+  if (m) return Buffer.from(m[1], 'base64');
+  const res = await fetch(url, { cache: 'no-store' });
+  const ab = await res.arrayBuffer();
+  return Buffer.from(ab);
 }
 
 export async function finalizeGeneration(args: {
@@ -78,8 +88,19 @@ export async function finalizeGeneration(args: {
     if (s.outputs.length === 0) return failAndRefund('worker produced no output');
 
     const outputs: OutFile[] = [];
+    const blocks: string[] = [];
     for (const o of s.outputs) {
       try {
+        // Pre-storage moderation. We only have to scan images; videos we accept
+        // as-is for now (IMS video is a separate service and slower; can add).
+        if (moderationEnabled() && o.type === 'image') {
+          const buf = await fetchAsBuffer(o.url);
+          const decision = await moderateImage({ data: buf });
+          if (decision.action === 'block') {
+            blocks.push(`${o.filename}: ${decision.reason}`);
+            continue; // skip storing
+          }
+        }
         const { key } = await ingestFromUrl({ userId, generationId, url: o.url, filename: o.filename });
         await addOutputFile({ generationId, kind: o.type, key });
         outputs.push({ url: await getPublicUrl(key), type: o.type, filename: o.filename });
@@ -87,7 +108,9 @@ export async function finalizeGeneration(args: {
         // Never fall back to returning the raw base64 data: URL.
       }
     }
-    if (outputs.length === 0) return failAndRefund('storage upload failed');
+    if (outputs.length === 0) {
+      return failAndRefund(blocks.length ? `blocked by moderation: ${blocks.join('; ')}` : 'storage upload failed');
+    }
 
     await updateGenerationStatus(generationId, 'COMPLETED');
     if (!isDbSkipped) {

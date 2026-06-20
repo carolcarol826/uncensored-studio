@@ -20,6 +20,8 @@ const LIMITS: Array<{ pattern: RegExp; perMinute: number }> = [
   { pattern: /^\/api\/checkout\//, perMinute: 20 },              // checkout: 20/min
   { pattern: /^\/api\/auth\/signin\//, perMinute: 10 },          // signin: 10/min (anti enum)
   { pattern: /^\/api\/auth\/sms\//, perMinute: 5 },              // SMS send: 5/min/IP (anti bombing)
+  { pattern: /^\/api\/takedown/, perMinute: 3 },                  // takedown: 3/min/IP (anti spam-flooding admin)
+  { pattern: /^\/api\/admin\//, perMinute: 60 },                  // admin endpoints (extra layer; route still checks isAdmin)
   { pattern: /^\/api\/(me|credits|gallery|workflows)(\b|\/|\?)/, perMinute: 60 }, // reads
   { pattern: /^\/api\//, perMinute: 120 },                      // catch-all API
 ];
