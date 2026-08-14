@@ -176,6 +176,13 @@ export async function buildI2IWorkflow(params: I2IParams): Promise<Record<string
       n.inputs.seed = params.seed;
       n.inputs.denoise = params.denoise;
     }
+    // Without this the latent inherits the upload's dimensions: a phone photo
+    // would sample at 4000px and a thumbnail would sample far below what SDXL
+    // can render coherently. Scale to the size the user actually asked for.
+    if (n.class_type === 'ImageScale') {
+      n.inputs.width = params.width;
+      n.inputs.height = params.height;
+    }
   }
 
   return result;
