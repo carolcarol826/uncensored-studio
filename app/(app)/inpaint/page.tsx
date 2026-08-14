@@ -157,7 +157,9 @@ export default function InpaintPage() {
         setProgress({ status: d.status, outputs: d.outputs ?? [] });
         if (d.completed) { setSubmitting(false); return; }
         if (d.status === 'failed') {
-          setError(d.error || t('gen.genFailed'));
+          // The server refunds on failure — say so, or the user assumes the
+          // credits are gone and won't retry.
+          setError(`${d.error || t('gen.genFailed')}\n${t('gen.creditsRefunded')}`);
           setSubmitting(false);
           return;
         }

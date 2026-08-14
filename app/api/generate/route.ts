@@ -9,7 +9,8 @@ import {
   buildInpaintWorkflow,
   type ControlType,
 } from '@/lib/workflows';
-import { submit } from '@/lib/inference';
+import { submit, provider as inferenceProvider, type InlineImage } from '@/lib/inference';
+import { getObject, inputImageKey } from '@/lib/storage';
 import {
   createGeneration,
   deductCredits,
@@ -228,6 +229,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Reference images were parked in object storage by /api/upload. RunPod
+  // workers share no filesystem with us, so the bytes ride along with the job.
+  // Resolved before charging — a missing upload must not cost the user credits.
+  let inlineImages: InlineImage[] | undefined;
+  if (inferenceProvider === 'runpod') {
+    const names = [body.inputImage, body.maskImage].filter(Boolean) as string[];
+    if (names.length > 0) {
+      try {
+        inlineImages = await Promise.all(
+          names.map(async (name) => ({
+            name,
+            // Key is built from the session user, so one account can never
+            // reference another account's upload.
+            image: (await getObject(inputImageKey(userId, name))).toString('base64'),
+          }))
+        );
+      } catch (err: any) {
+        return NextResponse.json(
+          { error: `参考图读取失败，请重新上传：${err?.message ?? err}` },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   // Deduct credits first (atomic). If submission fails we refund.
   try {
     await deductCredits(userId, costCredits, undefined, `gen ${body.mode}`);
@@ -253,7 +279,11 @@ export async function POST(req: NextRequest) {
       appUrl && webhookToken
         ? `${appUrl}/api/webhooks/runpod?token=${encodeURIComponent(webhookToken)}`
         : undefined;
-    const r = await submit(workflow!, { kind: isVideo ? 'video' : 'image', webhookUrl });
+    const r = await submit(workflow!, {
+      kind: isVideo ? 'video' : 'image',
+      webhookUrl,
+      images: inlineImages,
+    });
     jobId = r.jobId;
   } catch (err: any) {
     // refund on submission failure

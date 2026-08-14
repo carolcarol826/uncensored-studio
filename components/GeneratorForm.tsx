@@ -231,11 +231,14 @@ export default function GeneratorForm({
       try {
         const r = await fetch(`/api/status?${qs.toString()}`);
         const d = await r.json();
+        // Sitting in the queue past a few seconds means the endpoint is cold —
+        // say so, otherwise a 2-4 minute boot reads as the page being broken.
+        const queuedAwhile = d.status === 'queued' && Date.now() - start > 15_000;
         setProgress({
           status: d.status,
           completed: d.completed,
           outputs: d.outputs ?? [],
-          queueInfo: undefined,
+          queueInfo: queuedAwhile ? t('gen.coldStartHint') : undefined,
         });
         if (d.completed) {
           track('generation_completed', { mode, output_count: d.outputs?.length ?? 0 });
@@ -244,7 +247,9 @@ export default function GeneratorForm({
         }
         if (d.status === 'failed') {
           track('generation_failed', { mode, error: d.error ?? 'unknown' });
-          setError(d.error || t('gen.genFailed'));
+          // The server refunds on failure — say so, or the user assumes the
+          // credits are gone and won't retry.
+          setError(`${d.error || t('gen.genFailed')}\n${t('gen.creditsRefunded')}`);
           setSubmitting(false);
           return;
         }
@@ -254,7 +259,10 @@ export default function GeneratorForm({
       await new Promise((res) => setTimeout(res, 1500));
     }
     setSubmitting(false);
-    setError(t('gen.genTimeout'));
+    // We stopped polling, but the job itself hasn't been cancelled — RunPod's
+    // webhook still finalizes it, so point the user at the gallery instead of
+    // implying the work (or the credits) was lost.
+    setError(`${t('gen.genTimeout')}\n${t('gen.stillRunningHint')}`);
   };
 
   return (

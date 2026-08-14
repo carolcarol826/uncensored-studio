@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { uploadImage } from '@/lib/comfy';
+import { provider as inferenceProvider } from '@/lib/inference';
+import { putObject, inputImageKey, sanitizeFilename } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,10 +38,26 @@ export async function POST(req: NextRequest) {
     if (buffer.length > MAX_BYTES) {
       return NextResponse.json({ error: '文件过大（上限 12MB）' }, { status: 413 });
     }
-    if (!sniffType(buffer)) {
+    const sniffed = sniffType(buffer);
+    if (!sniffed) {
       return NextResponse.json({ error: '文件不是有效的图片' }, { status: 415 });
     }
-    const safeName = `ust-${session.user.id.slice(0, 8)}-${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`;
+
+    const safeName = sanitizeFilename(`${Date.now()}-${file.name}`);
+
+    // RunPod serverless has no long-lived ComfyUI to POST to — the reference
+    // image travels inline with the job. Park it in object storage now and
+    // /api/generate hands it to the worker at submit time.
+    if (inferenceProvider === 'runpod') {
+      await putObject({
+        key: inputImageKey(session.user.id, safeName),
+        data: buffer,
+        contentType: sniffed,
+      });
+      return NextResponse.json({ filename: safeName });
+    }
+
+    // Local dev: ComfyUI is reachable, so upload straight into its input dir.
     const name = await uploadImage(buffer, safeName);
     return NextResponse.json({ filename: name });
   } catch (err: any) {

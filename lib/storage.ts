@@ -65,6 +65,44 @@ export async function putObject(args: {
   );
 }
 
+/**
+ * Storage key for a user-uploaded reference image.
+ *
+ * The owner's id is part of the path, so a caller that builds the key from the
+ * *session* user can never address someone else's upload — ownership is
+ * structural rather than a prefix check that has to be remembered.
+ */
+export function inputImageKey(userId: string, filename: string): string {
+  return `inputs/${userId}/${sanitizeFilename(filename)}`;
+}
+
+/** Strip anything that could escape the key namespace or confuse ComfyUI. */
+export function sanitizeFilename(name: string): string {
+  const clean = name.replace(/[^\w.-]/g, '_').replace(/\.{2,}/g, '_');
+  if (!clean || clean === '.' || clean === '_') throw new Error('Invalid filename');
+  return clean;
+}
+
+/**
+ * Read an object's raw bytes back out of storage. Used to hand a previously
+ * uploaded reference image to the inference backend (which wants it inline).
+ */
+export async function getObject(key: string): Promise<Buffer> {
+  if (provider === 'local') {
+    const full = path.resolve(LOCAL_ROOT, key);
+    // Same containment guard as readLocalFile — a crafted key must not escape.
+    if (full !== LOCAL_ROOT && !full.startsWith(LOCAL_ROOT + path.sep)) {
+      throw new Error('Invalid key');
+    }
+    return fs.readFile(full);
+  }
+  const res = await s3().send(
+    new GetObjectCommand({ Bucket: bucket(), Key: key })
+  );
+  if (!res.Body) throw new Error(`Object not found: ${key}`);
+  return Buffer.from(await res.Body.transformToByteArray());
+}
+
 export async function deleteObject(key: string): Promise<void> {
   if (provider === 'local') {
     const full = path.join(LOCAL_ROOT, key);

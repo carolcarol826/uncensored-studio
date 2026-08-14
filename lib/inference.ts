@@ -24,6 +24,14 @@ export interface InferenceOutputFile {
   filename: string;
 }
 
+/** A reference image shipped inline with a job (worker-comfyui contract). */
+export interface InlineImage {
+  /** Bare filename the workflow's LoadImage node refers to. */
+  name: string;
+  /** Raw base64 (no data: prefix). */
+  image: string;
+}
+
 export interface InferenceStatus {
   state: 'queued' | 'running' | 'completed' | 'failed' | 'unknown';
   outputs: InferenceOutputFile[];
@@ -106,7 +114,8 @@ function endpointFor(kind: EndpointKind): string {
 async function runpodSubmit(
   workflow: Record<string, unknown>,
   kind: EndpointKind = 'image',
-  webhookUrl?: string
+  webhookUrl?: string,
+  images?: InlineImage[]
 ): Promise<SubmitResult> {
   const endpoint = endpointFor(kind);
   const key = required('RUNPOD_API_KEY');
@@ -118,7 +127,12 @@ async function runpodSubmit(
     },
     // RunPod calls `webhook` when the job finishes — this is what finalizes the
     // generation server-side even if the user closed the browser tab.
-    body: JSON.stringify({ input: { workflow }, ...(webhookUrl ? { webhook: webhookUrl } : {}) }),
+    // `images` are written into the worker's ComfyUI input dir before the
+    // workflow runs, so LoadImage nodes resolve them by bare filename.
+    body: JSON.stringify({
+      input: { workflow, ...(images?.length ? { images } : {}) },
+      ...(webhookUrl ? { webhook: webhookUrl } : {}),
+    }),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -179,13 +193,20 @@ export interface SubmitOpts {
   kind?: EndpointKind;
   /** RunPod calls this URL on job completion (server-side finalization). */
   webhookUrl?: string;
+  /**
+   * Reference images to place in the worker's ComfyUI input dir before the
+   * workflow runs. RunPod only — in local mode the file is already there.
+   */
+  images?: InlineImage[];
 }
 
 export async function submit(
   workflow: Record<string, unknown>,
   opts: SubmitOpts = {}
 ): Promise<SubmitResult> {
-  if (provider === 'runpod') return runpodSubmit(workflow, opts.kind ?? 'image', opts.webhookUrl);
+  if (provider === 'runpod') {
+    return runpodSubmit(workflow, opts.kind ?? 'image', opts.webhookUrl, opts.images);
+  }
   return localSubmit(workflow);
 }
 
@@ -193,15 +214,26 @@ export async function status(jobId: string): Promise<InferenceStatus> {
   return provider === 'runpod' ? runpodStatus(jobId) : localStatus(jobId);
 }
 
-// Models known to be available on the production RunPod endpoints.
-// First entry per kind is the default. Update when adding to Network Volume.
-const RUNPOD_CHECKPOINTS = [
-  'noobai-xl-v1.1.safetensors',  // NSFW anime SOTA, on /runpod-volume
-  'sd_xl_base_1.0.safetensors',  // SDXL base, baked into worker image
-];
-const RUNPOD_VIDEO_UNETS = [
-  'wan2.2_ti2v_5B_fp16.safetensors',  // Wan 2.2 TI2V-5B fp16, on /runpod-volume
-];
+// Models available on the production RunPod endpoints. First entry is the
+// default the UI preselects, so this list must only name checkpoints the
+// workers can actually load — offering one they can't fails every job.
+//
+// Defaults cover what is baked into the worker image. Models added later via a
+// Network Volume are opted in through env, no redeploy required:
+//   RUNPOD_CHECKPOINTS="noobai-xl-v1.1.safetensors,sd_xl_base_1.0.safetensors"
+function envList(key: string, fallback: string[]): string[] {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const items = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return items.length > 0 ? items : fallback;
+}
+
+const RUNPOD_CHECKPOINTS = envList('RUNPOD_CHECKPOINTS', [
+  'sd_xl_base_1.0.safetensors',  // SDXL base, baked into the worker image
+]);
+const RUNPOD_VIDEO_UNETS = envList('RUNPOD_VIDEO_UNETS', [
+  'wan2.2_ti2v_5B_fp16.safetensors',  // Wan 2.2 TI2V-5B fp16, in the video image
+]);
 
 export async function health() {
   if (provider === 'runpod') {
