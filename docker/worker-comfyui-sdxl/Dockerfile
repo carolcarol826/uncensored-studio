@@ -30,6 +30,12 @@ RUN cd /comfyui/custom_nodes && \
     git clone --depth 1 https://github.com/cubiq/PuLID_ComfyUI.git && \
     pip install --no-cache-dir -r PuLID_ComfyUI/requirements.txt
 
+# IP-Adapter — carries a garment image into the sampler as a visual reference,
+# which is what makes try-on possible: the masked region is repainted as the
+# uploaded garment rather than as whatever the prompt words happen to describe.
+RUN cd /comfyui/custom_nodes && \
+    git clone --depth 1 https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
+
 # worker-comfyui's extra_model_paths.yaml maps the stock folder types only, so
 # PuLID's own two would be invisible on the network volume. HF_HOME moves the
 # EVA-CLIP download onto the volume as well — otherwise every cold start pulls
@@ -37,7 +43,7 @@ RUN cd /comfyui/custom_nodes && \
 ENV HF_HOME=/runpod-volume/hf
 RUN CFG=$(find / -maxdepth 3 -name extra_model_paths.yaml -not -path '*/node_modules/*' | head -1) && \
     test -n "$CFG" && \
-    printf '  pulid: models/pulid/\n  insightface: models/insightface/\n' >> "$CFG" && \
+    printf '  pulid: models/pulid/\n  insightface: models/insightface/\n  ipadapter: models/ipadapter/\n' >> "$CFG" && \
     echo "--- $CFG ---" && cat "$CFG"
 
 # PulidInsightFaceLoader builds its path from folder_paths.models_dir directly
@@ -49,4 +55,4 @@ RUN rm -rf /comfyui/models/insightface && \
     ls -la /comfyui/models/ | grep insightface
 
 RUN ls -la /comfyui/custom_nodes/ && \
-    echo "SDXL + ControlNet + PuLID worker ready"
+    echo "SDXL + ControlNet + PuLID + IPAdapter worker ready"
