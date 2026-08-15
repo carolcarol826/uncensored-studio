@@ -95,8 +95,6 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: '上传参考图（人物 / 场景）→ AI 复刻姿势、深度或边缘构图',
     vramHint: '8-10 GB VRAM · SDXL + ControlNet',
     requiredCustomNodes: ['ComfyUI-Advanced-ControlNet', 'ComfyUI_controlnet_aux'],
-    // ControlNet weights are not on the volume yet.
-    localOnly: true,
   },
   {
     id: 'sdxl-inpaint',
