@@ -49,6 +49,18 @@ interface Props {
   defaultBatchSize?: number;
 }
 
+
+// Wan renders whatever frame size it is given, so a square portrait asked for
+// at 832x480 gets squashed — and the model then "corrects" the distorted face
+// into a different one. Match the source's aspect instead, staying within the
+// pixel budget the 5B model is comfortable with and on multiples of 16.
+function videoSizeFor(aspect: number): { width: number; height: number } {
+  const BUDGET = 704 * 704;
+  const round16 = (n: number) => Math.max(320, Math.round(n / 16) * 16);
+  const h = Math.sqrt(BUDGET / aspect);
+  return { width: round16(h * aspect), height: round16(h) };
+}
+
 export default function GeneratorForm({
   mode,
   title,
@@ -93,7 +105,7 @@ export default function GeneratorForm({
   const [seed, setSeed] = useState<number>(0);
   const [batchSize, setBatchSize] = useState(defaultBatchSize);
   const [denoise, setDenoise] = useState(0.65);
-  const [numFrames, setNumFrames] = useState(49);
+  const [numFrames, setNumFrames] = useState(81);
   const [pulidWeight, setPulidWeight] = useState(0.95);
   const [controlType, setControlType] = useState<ControlType>('openpose');
   const [controlStrength, setControlStrength] = useState(0.8);
@@ -170,11 +182,23 @@ export default function GeneratorForm({
       if (!res.ok) throw new Error(data.error || 'failed');
       setInputImage(data.filename);
       setInputImagePreview(item.url);
+      if (showVideoParams) fitVideoToImage(item.url);
     } catch (e: any) {
       setError(`${t('gen.pickerFailed')}: ${e.message}`);
     } finally {
       setUploading(false);
     }
+  };
+
+  const fitVideoToImage = (url: string) => {
+    const probe = new Image();
+    probe.onload = () => {
+      if (!probe.naturalWidth || !probe.naturalHeight) return;
+      const { width, height } = videoSizeFor(probe.naturalWidth / probe.naturalHeight);
+      setWidth(width);
+      setHeight(height);
+    };
+    probe.src = url;
   };
 
   const onUpload = async (file: File) => {
@@ -187,7 +211,9 @@ export default function GeneratorForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'upload failed');
       setInputImage(data.filename);
-      setInputImagePreview(URL.createObjectURL(file));
+      const objUrl = URL.createObjectURL(file);
+      setInputImagePreview(objUrl);
+      if (showVideoParams) fitVideoToImage(objUrl);
     } catch (e: any) {
       setError(`${t('gen.uploadFailed')}: ${e.message}`);
     } finally {
