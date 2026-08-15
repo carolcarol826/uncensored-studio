@@ -46,11 +46,6 @@
     "class_type": "Wan22ImageToVideoLatent",
     "_meta": { "title": "I2V latent" }
   },
-  "11": {
-    "inputs": { "shift": 8.0, "model": ["1", 0] },
-    "class_type": "ModelSamplingSD3",
-    "_meta": { "title": "Sampling shift" }
-  },
   "5": {
     "inputs": {
       "seed": 0,
@@ -59,7 +54,7 @@
       "sampler_name": "uni_pc",
       "scheduler": "simple",
       "denoise": 1.0,
-      "model": ["11", 0],
+      "model": ["1", 0],
       "positive": ["4", 0],
       "negative": ["10", 0],
       "latent_image": ["6", 0]
