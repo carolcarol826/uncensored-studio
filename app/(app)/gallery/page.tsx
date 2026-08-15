@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/components/I18nProvider';
 
 interface Item {
@@ -11,6 +11,41 @@ interface Item {
   prompt?: string;
   seed?: number;
   outputId?: string;
+}
+
+
+/**
+ * Autoplaying muted loop.
+ *
+ * React's `muted` prop does not always reach the DOM attribute, and a video the
+ * browser considers unmuted has its autoplay refused — the tile then sits on
+ * frame zero looking like a still. Setting muted on the element itself and
+ * asking it to play covers that.
+ */
+function AutoVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.muted = true;
+    el.defaultMuted = true;
+    const start = () => el.play().catch(() => undefined);
+    start();
+    el.addEventListener('loadeddata', start);
+    return () => el.removeEventListener('loadeddata', start);
+  }, [src]);
+  return (
+    <video
+      ref={ref}
+      src={src}
+      className="w-full h-full object-cover group-hover:opacity-80"
+      autoPlay
+      loop
+      muted
+      playsInline
+      preload="metadata"
+    />
+  );
 }
 
 export default function GalleryPage() {
@@ -284,16 +319,7 @@ export default function GalleryPage() {
               ) : (
                 // Plays in place rather than behind a click: a wall of identical
                 // placeholders tells you nothing about which clip is which.
-                // Muted is what makes autoplay permitted at all.
-                <video
-                  src={item.url}
-                  className="w-full h-full object-cover group-hover:opacity-80"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
-                />
+                <AutoVideo src={item.url} />
               )}
 
               {selectable && (

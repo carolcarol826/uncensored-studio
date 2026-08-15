@@ -17,6 +17,17 @@ interface Output {
   filename: string;
 }
 
+
+// Keep the upload's proportions. Scaling to a fixed square would stretch a
+// portrait photo, and sampling at the photo's native size runs out of VRAM,
+// so fit it inside an SDXL-sized budget on multiples of 8.
+function workingSizeFor(w: number, h: number): { width: number; height: number } {
+  const BUDGET = 1024 * 1024;
+  const round8 = (n: number) => Math.max(512, Math.round(n / 8) * 8);
+  const scale = Math.sqrt(BUDGET / (w * h));
+  return { width: round8(w * scale), height: round8(h * scale) };
+}
+
 export default function InpaintPage() {
   const t = useT();
   const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
@@ -28,6 +39,7 @@ export default function InpaintPage() {
   const [refImageUrl, setRefImageUrl] = useState<string>('');
   const [refImageRemoteName, setRefImageRemoteName] = useState<string>('');
   const [maskBlob, setMaskBlob] = useState<Blob | null>(null);
+  const [frame, setFrame] = useState({ width: 1024, height: 1024 });
   const [uploading, setUploading] = useState(false);
 
   const [positive, setPositive] = useState('');
@@ -62,7 +74,15 @@ export default function InpaintPage() {
 
   const onSelectRef = (f: File) => {
     setRefImageFile(f);
-    setRefImageUrl(URL.createObjectURL(f));
+    const u = URL.createObjectURL(f);
+    setRefImageUrl(u);
+    const probe = new Image();
+    probe.onload = () => {
+      if (probe.naturalWidth && probe.naturalHeight) {
+        setFrame(workingSizeFor(probe.naturalWidth, probe.naturalHeight));
+      }
+    };
+    probe.src = u;
     setRefImageRemoteName('');
     setMaskBlob(null);
     setProgress(null);
@@ -120,6 +140,8 @@ export default function InpaintPage() {
           negative,
           inputImage: refName,
           maskImage: maskName,
+          width: frame.width,
+          height: frame.height,
           steps,
           cfg,
           seed: seed > 0 ? seed : 0,

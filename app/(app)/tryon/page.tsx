@@ -24,6 +24,17 @@ interface GalleryPick {
   outputId?: string;
 }
 
+
+// Keep the upload's proportions. Scaling to a fixed square would stretch a
+// portrait photo, and sampling at the photo's native size runs out of VRAM,
+// so fit it inside an SDXL-sized budget on multiples of 8.
+function workingSizeFor(w: number, h: number): { width: number; height: number } {
+  const BUDGET = 1024 * 1024;
+  const round8 = (n: number) => Math.max(512, Math.round(n / 8) * 8);
+  const scale = Math.sqrt(BUDGET / (w * h));
+  return { width: round8(w * scale), height: round8(h * scale) };
+}
+
 export default function TryonPage() {
   const t = useT();
   const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
@@ -43,6 +54,7 @@ export default function TryonPage() {
 
   // Step 3 — which pixels to replace.
   const [maskBlob, setMaskBlob] = useState<Blob | null>(null);
+  const [frame, setFrame] = useState({ width: 1024, height: 1024 });
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerItems, setPickerItems] = useState<GalleryPick[] | null>(null);
@@ -78,9 +90,21 @@ export default function TryonPage() {
     })();
   }, []);
 
+  const measure = (url: string) => {
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth && img.naturalHeight) {
+        setFrame(workingSizeFor(img.naturalWidth, img.naturalHeight));
+      }
+    };
+    img.src = url;
+  };
+
   const onSelectPerson = (f: File) => {
     setPersonFile(f);
-    setPersonUrl(URL.createObjectURL(f));
+    const u = URL.createObjectURL(f);
+    setPersonUrl(u);
+    measure(u);
     setPersonRemote('');
     setMaskBlob(null);
     setProgress(null);
@@ -126,6 +150,7 @@ export default function TryonPage() {
       setPersonFile(null);
       setPersonRemote(data.filename);
       setPersonUrl(item.url);
+      measure(item.url);
       setMaskBlob(null);
       setProgress(null);
     } catch (e: any) {
@@ -200,6 +225,8 @@ export default function TryonPage() {
           garmentImage: garment,
           maskImage: mask,
           garmentWeight,
+          width: frame.width,
+          height: frame.height,
           steps,
           cfg,
           seed: seed > 0 ? seed : 0,

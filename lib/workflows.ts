@@ -339,6 +339,9 @@ export interface InpaintParams {
   checkpoint: string;
   positive: string;
   negative: string;
+  /** Working frame, derived from the source image so its shape is preserved. */
+  width: number;
+  height: number;
   inputImage: string;   // reference image filename uploaded to /api/upload
   maskImage: string;    // mask PNG (white=repaint, black=keep) filename uploaded to /api/upload
   steps: number;
@@ -372,6 +375,12 @@ export async function buildInpaintWorkflow(params: InpaintParams): Promise<Recor
     if (n.class_type === 'VAEEncodeForInpaint' && params.growMaskBy != null) {
       n.inputs.grow_mask_by = params.growMaskBy;
     }
+    // Same reason as try-on: the JSON's placeholder size would square off a
+    // portrait upload.
+    if (n.class_type === 'ImageScale') {
+      n.inputs.width = params.width;
+      n.inputs.height = params.height;
+    }
   }
 
   return result;
@@ -382,6 +391,9 @@ export interface TryonParams {
   checkpoint: string;
   positive: string;
   negative: string;
+  /** Working frame, derived from the person image so its shape is preserved. */
+  width: number;
+  height: number;
   /** The person being dressed. */
   inputImage: string;
   /** White-on-black PNG marking the clothing area to replace. */
@@ -419,6 +431,12 @@ export async function buildTryonWorkflow(params: TryonParams): Promise<Record<st
     }
     if (n.class_type === 'IPAdapterAdvanced' && params.garmentWeight != null) {
       n.inputs.weight = params.garmentWeight;
+    }
+    // Both the person and the mask scale to the same frame. Leaving the JSON's
+    // 1024x1024 in place would stretch a portrait photo into a square.
+    if (n.class_type === 'ImageScale') {
+      n.inputs.width = params.width;
+      n.inputs.height = params.height;
     }
     if (n.class_type === 'VAEEncodeForInpaint' && params.growMaskBy != null) {
       n.inputs.grow_mask_by = params.growMaskBy;
