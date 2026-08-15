@@ -258,13 +258,10 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {/* Tiles are a fixed 561x692 as specified; auto-fill wraps them to the
-          viewport and each shrinks proportionally rather than overflowing on
-          narrow screens. */}
-      <div
-        className="grid gap-3 justify-center"
-        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(561px, 100%), 561px))' }}
-      >
+      {/* Six across wherever the screen allows, stepping down on narrower ones.
+          Tiles keep the 561:692 portrait shape and scale to whatever width the
+          column gives them — pinning the width instead fits only two per row. */}
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {visible.map((item) => {
           const id = item.outputId;
           const isChecked = !!id && checked.has(id);
