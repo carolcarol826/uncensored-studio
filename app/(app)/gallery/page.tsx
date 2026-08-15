@@ -25,6 +25,7 @@ export default function GalleryPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState('');
   const [uploadMsg, setUploadMsg] = useState('');
+  const [tab, setTab] = useState<'all' | 'video' | 'image'>('all');
 
   const load = async () => {
     setLoading(true);
@@ -45,9 +46,12 @@ export default function GalleryPage() {
     load();
   }, []);
 
+  const visible = tab === 'all' ? items : items.filter((i) => i.type === tab);
+
   // Only DB-backed items carry an id, and without one there is nothing the
-  // server can be asked to delete or stream back.
-  const manageable = items.filter((i) => i.outputId);
+  // server can be asked to delete or stream back. Select-all follows the tab,
+  // so it never quietly picks up rows the user cannot see.
+  const manageable = visible.filter((i) => i.outputId);
 
   const toggle = (id: string) => {
     setChecked((prev) => {
@@ -182,6 +186,26 @@ export default function GalleryPage() {
         />
       </section>
 
+      <div className="flex gap-1 border-b border-bg-border">
+        {([
+          ['all', t('gallery.tabAll'), items.length],
+          ['video', t('gallery.tabVideo'), items.filter((i) => i.type === 'video').length],
+          ['image', t('gallery.tabImage'), items.filter((i) => i.type === 'image').length],
+        ] as const).map(([key, label, n]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
+              tab === key
+                ? 'border-accent text-fg font-medium'
+                : 'border-transparent text-fg-muted hover:text-fg'
+            }`}
+          >
+            {label} <span className="text-fg-subtle">{n}</span>
+          </button>
+        ))}
+      </div>
+
       {manageMode && (
         <div className="card flex items-center gap-3 flex-wrap sticky top-2 z-30">
           <span className="text-sm text-fg-muted">
@@ -234,8 +258,14 @@ export default function GalleryPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        {items.map((item) => {
+      {/* Tiles are a fixed 561x692 as specified; auto-fill wraps them to the
+          viewport and each shrinks proportionally rather than overflowing on
+          narrow screens. */}
+      <div
+        className="grid gap-3 justify-center"
+        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(561px, 100%), 561px))' }}
+      >
+        {visible.map((item) => {
           const id = item.outputId;
           const isChecked = !!id && checked.has(id);
           const selectable = manageMode && !!id;
@@ -243,9 +273,10 @@ export default function GalleryPage() {
             <button
               key={item.url}
               onClick={() => (selectable ? toggle(id!) : setSelected(item))}
-              className={`group relative overflow-hidden rounded border transition-colors aspect-square bg-bg-card ${
+              className={`group relative overflow-hidden rounded border transition-colors bg-bg-card ${
                 isChecked ? 'border-accent ring-2 ring-accent' : 'border-bg-border hover:border-accent'
               }`}
+              style={{ aspectRatio: '561 / 692' }}
             >
               {item.type === 'image' ? (
                 <img
