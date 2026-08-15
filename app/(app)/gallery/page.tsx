@@ -70,12 +70,33 @@ export default function GalleryPage() {
       // Sequential so a slow video does not stall the others behind a single
       // rejected batch, and so the message reflects real progress.
       for (let i = 0; i < files.length; i++) {
-        const fd = new FormData();
-        fd.append('file', files[i]);
+        const f = files[i];
         setUploadMsg(`${t('gallery.uploading')} ${i + 1}/${files.length}`);
-        const r = await fetch('/api/assets', { method: 'POST', body: fd });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || 'upload failed');
+
+        // The bytes go straight to storage: a function request body is capped
+        // at 4.5 MB, which no video is going to fit inside.
+        const pres = await fetch('/api/assets/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: f.name, contentType: f.type, size: f.size }),
+        });
+        const p = await pres.json();
+        if (!pres.ok) throw new Error(p.error || 'presign failed');
+
+        const put = await fetch(p.url, {
+          method: 'PUT',
+          headers: { 'Content-Type': f.type },
+          body: f,
+        });
+        if (!put.ok) throw new Error(`storage rejected the upload (${put.status})`);
+
+        const done = await fetch('/api/assets/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: p.key, kind: p.kind, filename: f.name, size: f.size }),
+        });
+        const dj = await done.json();
+        if (!done.ok) throw new Error(dj.error || 'could not record the upload');
       }
       setUploadMsg(t('gallery.uploadDone'));
       await load();

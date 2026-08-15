@@ -84,6 +84,30 @@ export function sanitizeFilename(name: string): string {
 }
 
 /**
+ * A URL the browser can PUT a file straight to.
+ *
+ * Vercel caps a function's request body at 4.5 MB, which no video clears, so
+ * large uploads cannot travel through the app at all. The browser sends the
+ * bytes to R2 itself and only tells us the key afterwards. Requires the bucket
+ * to allow PUT from the site's origin.
+ */
+export async function presignPut(args: {
+  key: string;
+  contentType: string;
+  expiresIn?: number;
+}): Promise<string> {
+  if (provider === 'local') {
+    throw new Error('presignPut requires R2 storage');
+  }
+  const cmd = new PutObjectCommand({
+    Bucket: bucket(),
+    Key: args.key,
+    ContentType: args.contentType,
+  });
+  return getSignedUrl(s3(), cmd, { expiresIn: args.expiresIn ?? 900 });
+}
+
+/**
  * Read an object's raw bytes back out of storage. Used to hand a previously
  * uploaded reference image to the inference backend (which wants it inline).
  */
