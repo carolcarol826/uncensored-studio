@@ -566,6 +566,39 @@ export async function getOwnedOutput(
   return out ?? null;
 }
 
+/**
+ * Delete the caller's own outputs and report which storage keys went with them,
+ * so the objects can be removed too. Ids belonging to anyone else are silently
+ * skipped rather than reported, which keeps the endpoint from confirming that
+ * some other account's id exists.
+ */
+export async function deleteOwnedOutputs(
+  userId: string,
+  outputIds: string[]
+): Promise<string[]> {
+  if (outputIds.length === 0) return [];
+  if (isDbSkipped) {
+    const keys: string[] = [];
+    for (const g of mockGenerations.values()) {
+      if (g.userId !== userId) continue;
+      const keep: any[] = [];
+      for (const o of g.outputs ?? []) {
+        if (outputIds.includes(o.id)) keys.push(o.key);
+        else keep.push(o);
+      }
+      g.outputs = keep;
+    }
+    return keys;
+  }
+  const owned = await prisma.outputFile.findMany({
+    where: { id: { in: outputIds }, generation: { userId } },
+    select: { id: true, key: true },
+  });
+  if (owned.length === 0) return [];
+  await prisma.outputFile.deleteMany({ where: { id: { in: owned.map((o) => o.id) } } });
+  return owned.map((o) => o.key);
+}
+
 export async function listGenerations(userId: string, limit = 100) {
   if (isDbSkipped) {
     return Array.from(mockGenerations.values())

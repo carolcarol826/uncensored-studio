@@ -6,7 +6,7 @@ const WORKFLOW_DIR = path.join(process.cwd(), 'lib', 'workflows');
 export interface WorkflowMeta {
   id: string;
   name: string;
-  category: 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet' | 'inpaint';
+  category: 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet' | 'inpaint' | 'tryon';
   description: string;
   vramHint: string;
   requiredCustomNodes?: string[];
@@ -95,6 +95,16 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: '上传参考图（人物 / 场景）→ AI 复刻姿势、深度或边缘构图',
     vramHint: '8-10 GB VRAM · SDXL + ControlNet',
     requiredCustomNodes: ['ComfyUI-Advanced-ControlNet', 'ComfyUI_controlnet_aux'],
+  },
+  {
+    id: 'sdxl-tryon',
+    name: 'SDXL AI 换装 (虚拟试衣)',
+    category: 'tryon',
+    description: '上传人物图 + 服装图 → 涂抹要换的衣服区域 → 人物穿上该服装',
+    vramHint: '8-10 GB VRAM · SDXL + IP-Adapter',
+    requiredCustomNodes: ['ComfyUI_IPAdapter_plus'],
+    // IP-Adapter weights are not on the volume yet.
+    localOnly: true,
   },
   {
     id: 'sdxl-inpaint',
@@ -362,6 +372,57 @@ export async function buildInpaintWorkflow(params: InpaintParams): Promise<Recor
       n.inputs.cfg = params.cfg;
       n.inputs.seed = params.seed;
       n.inputs.denoise = params.denoise ?? 1.0;
+    }
+    if (n.class_type === 'VAEEncodeForInpaint' && params.growMaskBy != null) {
+      n.inputs.grow_mask_by = params.growMaskBy;
+    }
+  }
+
+  return result;
+}
+
+export interface TryonParams {
+  workflowId: string;
+  checkpoint: string;
+  positive: string;
+  negative: string;
+  /** The person being dressed. */
+  inputImage: string;
+  /** White-on-black PNG marking the clothing area to replace. */
+  maskImage: string;
+  /** The garment to put on them. */
+  garmentImage: string;
+  steps: number;
+  cfg: number;
+  seed: number;
+  /** How strongly the garment reference steers the repaint (IP-Adapter weight). */
+  garmentWeight?: number;
+  growMaskBy?: number;
+}
+
+export async function buildTryonWorkflow(params: TryonParams): Promise<Record<string, unknown>> {
+  const wf = await loadWorkflow(params.workflowId);
+  const json = JSON.stringify(wf)
+    .replace(/__CKPT__/g, params.checkpoint)
+    .replace(/__POSITIVE__/g, escapeForJson(params.positive))
+    .replace(/__NEGATIVE__/g, escapeForJson(params.negative))
+    .replace(/__INPUT_IMAGE__/g, escapeForJson(params.inputImage))
+    .replace(/__MASK_IMAGE__/g, escapeForJson(params.maskImage))
+    .replace(/__GARMENT_IMAGE__/g, escapeForJson(params.garmentImage));
+
+  const result = JSON.parse(json) as Record<string, any>;
+
+  for (const node of Object.values(result)) {
+    if (!node || typeof node !== 'object') continue;
+    const n = node as { class_type?: string; inputs?: Record<string, any> };
+    if (!n.inputs) continue;
+    if (n.class_type === 'KSampler') {
+      n.inputs.steps = params.steps;
+      n.inputs.cfg = params.cfg;
+      n.inputs.seed = params.seed;
+    }
+    if (n.class_type === 'IPAdapterAdvanced' && params.garmentWeight != null) {
+      n.inputs.weight = params.garmentWeight;
     }
     if (n.class_type === 'VAEEncodeForInpaint' && params.growMaskBy != null) {
       n.inputs.grow_mask_by = params.growMaskBy;

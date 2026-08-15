@@ -111,6 +111,7 @@ enum GenerationKind {
   CHARACTER
   CONTROLNET
   INPAINT
+  TRYON
 }
 
 enum GenerationStatus {

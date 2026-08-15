@@ -7,6 +7,7 @@ import {
   buildCharacterWorkflow,
   buildControlNetWorkflow,
   buildInpaintWorkflow,
+  buildTryonWorkflow,
   type ControlType,
 } from '@/lib/workflows';
 import { submit, provider as inferenceProvider, type InlineImage } from '@/lib/inference';
@@ -40,6 +41,8 @@ interface Body {
   controlType?: ControlType;
   controlStrength?: number;
   maskImage?: string;
+  garmentImage?: string;
+  garmentWeight?: number;
   growMaskBy?: number;
 }
 
@@ -51,6 +54,7 @@ const KIND_MAP = {
   character: 'CHARACTER',
   controlnet: 'CONTROLNET',
   inpaint: 'INPAINT',
+  tryon: 'TRYON',
 } as const;
 
 export async function POST(req: NextRequest) {
@@ -200,6 +204,31 @@ export async function POST(req: NextRequest) {
           batchSize: body.batchSize ?? 1,
         });
         break;
+      case 'tryon':
+        if (!body.inputImage) {
+          return NextResponse.json({ error: '请上传人物图' }, { status: 400 });
+        }
+        if (!body.garmentImage) {
+          return NextResponse.json({ error: '请上传服装图' }, { status: 400 });
+        }
+        if (!body.maskImage) {
+          return NextResponse.json({ error: '请涂抹要换衣服的区域' }, { status: 400 });
+        }
+        workflow = await buildTryonWorkflow({
+          workflowId: body.workflowId,
+          checkpoint: body.checkpoint,
+          positive: body.positive,
+          negative: body.negative ?? '',
+          inputImage: body.inputImage,
+          maskImage: body.maskImage,
+          garmentImage: body.garmentImage,
+          steps: body.steps ?? 30,
+          cfg: body.cfg ?? 7,
+          seed,
+          garmentWeight: body.garmentWeight,
+          growMaskBy: body.growMaskBy,
+        });
+        break;
       case 'inpaint':
         if (!body.inputImage) {
           return NextResponse.json({ error: '请上传原图' }, { status: 400 });
@@ -234,7 +263,7 @@ export async function POST(req: NextRequest) {
   // Resolved before charging — a missing upload must not cost the user credits.
   let inlineImages: InlineImage[] | undefined;
   if (inferenceProvider === 'runpod') {
-    const names = [body.inputImage, body.maskImage].filter(Boolean) as string[];
+    const names = [body.inputImage, body.maskImage, body.garmentImage].filter(Boolean) as string[];
     if (names.length > 0) {
       try {
         inlineImages = await Promise.all(
