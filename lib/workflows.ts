@@ -75,8 +75,6 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: '上传一张人脸，生成同一角色的多种场景。SDXL 路线最稳。',
     vramHint: '8 GB VRAM',
     requiredCustomNodes: ['ComfyUI_PuLID（cubiq/sipie800）'],
-    // PuLID weights + InsightFace are not on the volume yet.
-    localOnly: true,
   },
   {
     id: 'pulid-flux-t2i',
@@ -103,8 +101,6 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: '上传人物图 + 服装图 → 涂抹要换的衣服区域 → 人物穿上该服装',
     vramHint: '8-10 GB VRAM · SDXL + IP-Adapter',
     requiredCustomNodes: ['ComfyUI_IPAdapter_plus'],
-    // IP-Adapter weights are not on the volume yet.
-    localOnly: true,
   },
   {
     id: 'sdxl-inpaint',
