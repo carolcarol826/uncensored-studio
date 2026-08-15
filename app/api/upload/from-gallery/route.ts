@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getOwnedOutput } from '@/lib/store';
+import { getOwnedOutput, deleteOwnedOutputs } from '@/lib/store';
 import { getObject, putObject, inputImageKey, sanitizeFilename } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +54,17 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ filename: safeName });
   } catch (err: any) {
+    // A row whose object has gone is not something the user can act on, and
+    // leaving it listed means they keep clicking a tile that cannot work.
+    // Drop the record so the gallery stops offering it.
+    const missing = /NoSuchKey|does not exist|NotFound/i.test(String(err?.message ?? err));
+    if (missing) {
+      await deleteOwnedOutputs(session.user!.id!, [body.outputId!]).catch(() => undefined);
+      return NextResponse.json(
+        { error: '该作品的文件已不存在，已从图库移除' },
+        { status: 410 }
+      );
+    }
     return NextResponse.json(
       { error: err?.message || String(err) },
       { status: 500 }
