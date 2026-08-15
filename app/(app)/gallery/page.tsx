@@ -24,6 +24,7 @@ export default function GalleryPage() {
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState('');
+  const [uploadMsg, setUploadMsg] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -60,6 +61,29 @@ export default function GalleryPage() {
   const exitManage = () => {
     setManageMode(false);
     setChecked(new Set());
+  };
+
+  const onUploadAssets = async (files: FileList) => {
+    setUploadMsg(t('gallery.uploading'));
+    setError('');
+    try {
+      // Sequential so a slow video does not stall the others behind a single
+      // rejected batch, and so the message reflects real progress.
+      for (let i = 0; i < files.length; i++) {
+        const fd = new FormData();
+        fd.append('file', files[i]);
+        setUploadMsg(`${t('gallery.uploading')} ${i + 1}/${files.length}`);
+        const r = await fetch('/api/assets', { method: 'POST', body: fd });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'upload failed');
+      }
+      setUploadMsg(t('gallery.uploadDone'));
+      await load();
+      setTimeout(() => setUploadMsg(''), 2500);
+    } catch (e: any) {
+      setUploadMsg('');
+      setError(`${t('gallery.uploadFailed')}: ${e.message}`);
+    }
   };
 
   const doDelete = async () => {
@@ -121,6 +145,21 @@ export default function GalleryPage() {
           <button onClick={load} className="btn-secondary">{t('gallery.refresh')}</button>
         </div>
       </header>
+
+      <section className="card space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium">{t('gallery.uploadAsset')}</span>
+          {uploadMsg && <span className="text-xs text-accent">{uploadMsg}</span>}
+        </div>
+        <p className="text-xs text-fg-subtle">{t('gallery.uploadAssetHint')}</p>
+        <input
+          type="file"
+          multiple
+          accept="image/*,video/*"
+          onChange={(e) => e.target.files?.length && onUploadAssets(e.target.files)}
+          className="block w-full text-sm text-fg-muted file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer"
+        />
+      </section>
 
       {manageMode && (
         <div className="card flex items-center gap-3 flex-wrap sticky top-2 z-30">

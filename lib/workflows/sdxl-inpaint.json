@@ -1,44 +1,93 @@
 {
-  "_comment": "SDXL inpainting. Uses ComfyUI's built-in VAEEncodeForInpaint — no custom nodes required. The mask image must be a PNG where WHITE pixels mark areas to repaint and BLACK pixels mark areas to keep. Placeholders: __CKPT__, __POSITIVE__, __NEGATIVE__, __INPUT_IMAGE__, __MASK_IMAGE__.",
+  "_comment": "SDXL inpainting. Uses ComfyUI's built-in VAEEncodeForInpaint — no custom nodes required. The mask image must be a PNG where WHITE pixels mark areas to repaint and BLACK pixels mark areas to keep. Placeholders: __CKPT__, __POSITIVE__, __NEGATIVE__, __INPUT_IMAGE__, __MASK_IMAGE__. Image and mask are scaled together before encoding, so a large upload cannot run the sampler out of VRAM.",
   "4": {
-    "inputs": { "ckpt_name": "__CKPT__" },
+    "inputs": {
+      "ckpt_name": "__CKPT__"
+    },
     "class_type": "CheckpointLoaderSimple",
-    "_meta": { "title": "Checkpoint" }
+    "_meta": {
+      "title": "Checkpoint"
+    }
   },
   "6": {
-    "inputs": { "text": "__POSITIVE__", "clip": ["4", 1] },
+    "inputs": {
+      "text": "__POSITIVE__",
+      "clip": [
+        "4",
+        1
+      ]
+    },
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Positive" }
+    "_meta": {
+      "title": "Positive"
+    }
   },
   "7": {
-    "inputs": { "text": "__NEGATIVE__", "clip": ["4", 1] },
+    "inputs": {
+      "text": "__NEGATIVE__",
+      "clip": [
+        "4",
+        1
+      ]
+    },
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Negative" }
+    "_meta": {
+      "title": "Negative"
+    }
   },
   "10": {
-    "inputs": { "image": "__INPUT_IMAGE__", "upload": "image" },
+    "inputs": {
+      "image": "__INPUT_IMAGE__",
+      "upload": "image"
+    },
     "class_type": "LoadImage",
-    "_meta": { "title": "Reference Image" }
+    "_meta": {
+      "title": "Reference Image"
+    }
   },
   "11": {
-    "inputs": { "image": "__MASK_IMAGE__", "upload": "image" },
+    "inputs": {
+      "image": "__MASK_IMAGE__",
+      "upload": "image"
+    },
     "class_type": "LoadImage",
-    "_meta": { "title": "Mask Image" }
+    "_meta": {
+      "title": "Mask Image"
+    }
   },
   "12": {
-    "inputs": { "image": ["11", 0], "channel": "red" },
+    "inputs": {
+      "image": [
+        "31",
+        0
+      ],
+      "channel": "red"
+    },
     "class_type": "ImageToMask",
-    "_meta": { "title": "Image → Mask (red channel)" }
+    "_meta": {
+      "title": "Image → Mask (red channel)"
+    }
   },
   "13": {
     "inputs": {
-      "pixels": ["10", 0],
-      "vae": ["4", 2],
-      "mask": ["12", 0],
+      "pixels": [
+        "30",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ],
+      "mask": [
+        "12",
+        0
+      ],
       "grow_mask_by": 6
     },
     "class_type": "VAEEncodeForInpaint",
-    "_meta": { "title": "VAE Encode (Inpaint)" }
+    "_meta": {
+      "title": "VAE Encode (Inpaint)"
+    }
   },
   "3": {
     "inputs": {
@@ -48,22 +97,87 @@
       "sampler_name": "dpmpp_2m",
       "scheduler": "karras",
       "denoise": 1.0,
-      "model": ["4", 0],
-      "positive": ["6", 0],
-      "negative": ["7", 0],
-      "latent_image": ["13", 0]
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "13",
+        0
+      ]
     },
     "class_type": "KSampler",
-    "_meta": { "title": "Sampler" }
+    "_meta": {
+      "title": "Sampler"
+    }
   },
   "8": {
-    "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
     "class_type": "VAEDecode",
-    "_meta": { "title": "VAE Decode" }
+    "_meta": {
+      "title": "VAE Decode"
+    }
   },
   "9": {
-    "inputs": { "filename_prefix": "myhim-inpaint", "images": ["8", 0] },
+    "inputs": {
+      "filename_prefix": "myhim-inpaint",
+      "images": [
+        "8",
+        0
+      ]
+    },
     "class_type": "SaveImage",
-    "_meta": { "title": "Save" }
+    "_meta": {
+      "title": "Save"
+    }
+  },
+  "30": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled",
+      "image": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Fit image to working size"
+    }
+  },
+  "31": {
+    "inputs": {
+      "upscale_method": "bilinear",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled",
+      "image": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Fit mask to working size"
+    }
   }
 }

@@ -1,76 +1,155 @@
 {
-  "_comment": "SDXL virtual try-on. The person image is inpainted only inside the painted mask, and IP-Adapter carries the uploaded garment in as a visual reference so the repainted region becomes that garment rather than whatever the prompt words suggest. The same mask is fed to IP-Adapter as attn_mask, keeping the garment's influence off the face and background. Node inputs follow cubiq/ComfyUI_IPAdapter_plus. Placeholders: __CKPT__, __POSITIVE__, __NEGATIVE__, __INPUT_IMAGE__, __MASK_IMAGE__, __GARMENT_IMAGE__.",
+  "_comment": "SDXL virtual try-on. The person image is inpainted only inside the painted mask, and IP-Adapter carries the uploaded garment in as a visual reference so the repainted region becomes that garment rather than whatever the prompt words suggest. The same mask is fed to IP-Adapter as attn_mask, keeping the garment's influence off the face and background. Node inputs follow cubiq/ComfyUI_IPAdapter_plus. Placeholders: __CKPT__, __POSITIVE__, __NEGATIVE__, __INPUT_IMAGE__, __MASK_IMAGE__, __GARMENT_IMAGE__. Person and mask are scaled together before encoding: a phone photo at native size runs the sampler out of VRAM, and the worker then returns no image at all.",
   "4": {
-    "inputs": { "ckpt_name": "__CKPT__" },
+    "inputs": {
+      "ckpt_name": "__CKPT__"
+    },
     "class_type": "CheckpointLoaderSimple",
-    "_meta": { "title": "Checkpoint" }
+    "_meta": {
+      "title": "Checkpoint"
+    }
   },
   "10": {
-    "inputs": { "image": "__INPUT_IMAGE__", "upload": "image" },
+    "inputs": {
+      "image": "__INPUT_IMAGE__",
+      "upload": "image"
+    },
     "class_type": "LoadImage",
-    "_meta": { "title": "Person" }
+    "_meta": {
+      "title": "Person"
+    }
   },
   "11": {
-    "inputs": { "image": "__MASK_IMAGE__", "upload": "image" },
+    "inputs": {
+      "image": "__MASK_IMAGE__",
+      "upload": "image"
+    },
     "class_type": "LoadImage",
-    "_meta": { "title": "Mask" }
+    "_meta": {
+      "title": "Mask"
+    }
   },
   "12": {
-    "inputs": { "image": ["11", 0], "channel": "red" },
+    "inputs": {
+      "image": [
+        "31",
+        0
+      ],
+      "channel": "red"
+    },
     "class_type": "ImageToMask",
-    "_meta": { "title": "Image → Mask (red channel)" }
+    "_meta": {
+      "title": "Image → Mask (red channel)"
+    }
   },
   "20": {
-    "inputs": { "image": "__GARMENT_IMAGE__", "upload": "image" },
+    "inputs": {
+      "image": "__GARMENT_IMAGE__",
+      "upload": "image"
+    },
     "class_type": "LoadImage",
-    "_meta": { "title": "Garment" }
+    "_meta": {
+      "title": "Garment"
+    }
   },
   "21": {
-    "inputs": { "clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors" },
+    "inputs": {
+      "clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"
+    },
     "class_type": "CLIPVisionLoader",
-    "_meta": { "title": "CLIP Vision (ViT-H)" }
+    "_meta": {
+      "title": "CLIP Vision (ViT-H)"
+    }
   },
   "22": {
-    "inputs": { "ipadapter_file": "ip-adapter-plus_sdxl_vit-h.safetensors" },
+    "inputs": {
+      "ipadapter_file": "ip-adapter-plus_sdxl_vit-h.safetensors"
+    },
     "class_type": "IPAdapterModelLoader",
-    "_meta": { "title": "IP-Adapter model" }
+    "_meta": {
+      "title": "IP-Adapter model"
+    }
   },
   "23": {
     "inputs": {
-      "model": ["4", 0],
-      "ipadapter": ["22", 0],
-      "image": ["20", 0],
+      "model": [
+        "4",
+        0
+      ],
+      "ipadapter": [
+        "22",
+        0
+      ],
+      "image": [
+        "20",
+        0
+      ],
       "weight": 1.0,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0.0,
       "end_at": 1.0,
       "embeds_scaling": "V only",
-      "clip_vision": ["21", 0],
-      "attn_mask": ["12", 0]
+      "clip_vision": [
+        "21",
+        0
+      ],
+      "attn_mask": [
+        "12",
+        0
+      ]
     },
     "class_type": "IPAdapterAdvanced",
-    "_meta": { "title": "Apply garment reference" }
+    "_meta": {
+      "title": "Apply garment reference"
+    }
   },
   "6": {
-    "inputs": { "text": "__POSITIVE__", "clip": ["4", 1] },
+    "inputs": {
+      "text": "__POSITIVE__",
+      "clip": [
+        "4",
+        1
+      ]
+    },
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Positive" }
+    "_meta": {
+      "title": "Positive"
+    }
   },
   "7": {
-    "inputs": { "text": "__NEGATIVE__", "clip": ["4", 1] },
+    "inputs": {
+      "text": "__NEGATIVE__",
+      "clip": [
+        "4",
+        1
+      ]
+    },
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Negative" }
+    "_meta": {
+      "title": "Negative"
+    }
   },
   "13": {
     "inputs": {
-      "pixels": ["10", 0],
-      "vae": ["4", 2],
-      "mask": ["12", 0],
+      "pixels": [
+        "30",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ],
+      "mask": [
+        "12",
+        0
+      ],
       "grow_mask_by": 6
     },
     "class_type": "VAEEncodeForInpaint",
-    "_meta": { "title": "VAE Encode (Inpaint)" }
+    "_meta": {
+      "title": "VAE Encode (Inpaint)"
+    }
   },
   "3": {
     "inputs": {
@@ -80,22 +159,87 @@
       "sampler_name": "dpmpp_2m",
       "scheduler": "karras",
       "denoise": 1.0,
-      "model": ["23", 0],
-      "positive": ["6", 0],
-      "negative": ["7", 0],
-      "latent_image": ["13", 0]
+      "model": [
+        "23",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "13",
+        0
+      ]
     },
     "class_type": "KSampler",
-    "_meta": { "title": "Sampler" }
+    "_meta": {
+      "title": "Sampler"
+    }
   },
   "8": {
-    "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
     "class_type": "VAEDecode",
-    "_meta": { "title": "VAE Decode" }
+    "_meta": {
+      "title": "VAE Decode"
+    }
   },
   "9": {
-    "inputs": { "filename_prefix": "myhim-tryon", "images": ["8", 0] },
+    "inputs": {
+      "filename_prefix": "myhim-tryon",
+      "images": [
+        "8",
+        0
+      ]
+    },
     "class_type": "SaveImage",
-    "_meta": { "title": "Save" }
+    "_meta": {
+      "title": "Save"
+    }
+  },
+  "30": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled",
+      "image": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Fit person to working size"
+    }
+  },
+  "31": {
+    "inputs": {
+      "upscale_method": "bilinear",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled",
+      "image": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Fit mask to working size"
+    }
   }
 }

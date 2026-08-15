@@ -112,6 +112,7 @@ enum GenerationKind {
   CONTROLNET
   INPAINT
   TRYON
+  UPLOAD
 }
 
 enum GenerationStatus {
