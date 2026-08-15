@@ -112,9 +112,13 @@ export default function GeneratorForm({
         setWorkflows(wf);
         if (wf[0]) setWorkflowId(wf[0].id);
         setComfyOnline(h.online);
-        if (h.checkpoints) {
-          setCheckpoints(h.checkpoints);
-          if (h.checkpoints[0]) setCheckpoint(h.checkpoints[0]);
+        // Video graphs load a diffusion model, not an SDXL checkpoint — offering
+        // the image list here produced a model the video worker cannot load.
+        const isVideoMode = mode === 'img2video' || mode === 'text2video';
+        const list: string[] | undefined = isVideoMode ? h.videoUnets : h.checkpoints;
+        if (list?.length) {
+          setCheckpoints(list);
+          setCheckpoint(list[0]);
         }
       } catch (e) {
         setError(`${t('gen.initFailed')}: ${(e as Error).message}`);
