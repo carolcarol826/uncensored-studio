@@ -43,6 +43,14 @@ export const WORKFLOWS: WorkflowMeta[] = [
     vramHint: '6-8 GB VRAM',
   },
   {
+    id: 'wan22-i2v-14b',
+    name: 'Wan 2.2 图生视频 (14B, 人脸保持最好)',
+    category: 'img2video',
+    description: 'A14B 双专家模型 — 真实照片的长相保持明显优于 5B',
+    vramHint: '24 GB VRAM · fp8',
+    requiredCustomNodes: ['ComfyUI-VideoHelperSuite'],
+  },
+  {
     id: 'wan22-i2v',
     name: 'Wan 2.2 图生视频',
     category: 'img2video',
@@ -481,12 +489,23 @@ export async function buildVideoWorkflow(params: I2VParams): Promise<Record<stri
     if (n.class_type === 'KSampler' || n.class_type === 'KSamplerAdvanced') {
       n.inputs.steps = params.steps;
       n.inputs.cfg = params.cfg;
-      n.inputs.seed = params.seed;
+      // KSamplerAdvanced names the seed differently, and the A14B graph runs
+      // two of them — the handover step has to track whatever `steps` becomes,
+      // or a raised step count would leave the low-noise expert nothing to do.
+      if (n.class_type === 'KSamplerAdvanced') {
+        n.inputs.noise_seed = params.seed;
+        const half = Math.max(1, Math.round(params.steps / 2));
+        if (n.inputs.start_at_step === 0) n.inputs.end_at_step = half;
+        else n.inputs.start_at_step = half;
+      } else {
+        n.inputs.seed = params.seed;
+      }
     }
     // text2video seeds an empty latent; img2video seeds one from the upload.
     if (
       n.class_type === 'EmptyHunyuanLatentVideo' ||
-      n.class_type === 'Wan22ImageToVideoLatent'
+      n.class_type === 'Wan22ImageToVideoLatent' ||
+      n.class_type === 'WanImageToVideo'
     ) {
       n.inputs.width = params.width;
       n.inputs.height = params.height;

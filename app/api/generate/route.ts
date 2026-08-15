@@ -93,7 +93,11 @@ export async function POST(req: NextRequest) {
   const pixels = (body.width ?? 1024) * (body.height ?? 1024);
   const hiResMul = pixels > 1024 * 1024 ? 2 : 1;
   const framesMul = body.numFrames && body.numFrames > 49 ? 2 : 1;
-  const costCredits = baseCost * hiResMul * framesMul * (body.batchSize ?? 1);
+  // The A14B video graph loads 28GB of weights and samples through two experts,
+  // so a clip costs us far more GPU time than the 5B one at the same settings.
+  const heavyModelMul = body.workflowId === 'wan22-i2v-14b' ? 2 : 1;
+  const costCredits =
+    baseCost * hiResMul * framesMul * heavyModelMul * (body.batchSize ?? 1);
 
   if (user.credits < costCredits) {
     return NextResponse.json(
