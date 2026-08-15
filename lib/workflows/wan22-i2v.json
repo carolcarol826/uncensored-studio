@@ -1,9 +1,9 @@
 {
-  "_comment": "Wan 2.2 I2V minimal template. Requires ComfyUI-WanVideoWrapper (Kijai). Adjust node IDs to match the installed version of the wrapper.",
+  "_comment": "Wan 2.2 TI2V-5B image-to-video on ComfyUI's native Wan nodes. Deliberately not kijai's WanVideoWrapper: that wrapper wants its own repackaged weights and rejects the Comfy-Org fp8-scaled T5 we host. Models live on the network volume under models/{unet,clip,vae} — the legacy folder names, which are the ones worker-comfyui's extra_model_paths maps and which ComfyUI aliases to diffusion_models/text_encoders. Placeholders: __CKPT__, __POSITIVE__, __NEGATIVE__, __INPUT_IMAGE__.",
   "1": {
-    "inputs": { "model": "__CKPT__", "base_precision": "fp8_e4m3fn", "quantization": "disabled", "load_device": "main_device", "attention_mode": "sdpa" },
-    "class_type": "WanVideoModelLoader",
-    "_meta": { "title": "Wan Model Loader" }
+    "inputs": { "unet_name": "__CKPT__", "weight_dtype": "default" },
+    "class_type": "UNETLoader",
+    "_meta": { "title": "Wan 2.2 diffusion model" }
   },
   "2": {
     "inputs": { "image": "__INPUT_IMAGE__", "upload": "image" },
@@ -11,32 +11,79 @@
     "_meta": { "title": "Load Image" }
   },
   "3": {
-    "inputs": { "model_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "precision": "fp16", "load_device": "offload_device" },
-    "class_type": "LoadWanVideoT5TextEncoder",
-    "_meta": { "title": "T5 Loader" }
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": { "title": "UMT5 text encoder" }
+  },
+  "9": {
+    "inputs": { "vae_name": "wan2.2_vae.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "Wan 2.2 VAE" }
   },
   "4": {
-    "inputs": { "positive_prompt": "__POSITIVE__", "negative_prompt": "__NEGATIVE__", "t5": ["3", 0] },
-    "class_type": "WanVideoTextEncode",
-    "_meta": { "title": "Encode" }
+    "inputs": { "text": "__POSITIVE__", "clip": ["3", 0] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive" }
   },
-  "5": {
-    "inputs": { "model": ["1", 0], "image_embeds": ["6", 0], "text_embeds": ["4", 0], "steps": 20, "cfg": 6, "seed": 0, "scheduler": "unipc", "shift": 5 },
-    "class_type": "WanVideoSampler",
-    "_meta": { "title": "Sampler" }
+  "10": {
+    "inputs": { "text": "__NEGATIVE__", "clip": ["3", 0] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative" }
   },
   "6": {
-    "inputs": { "image": ["2", 0], "width": 832, "height": 480, "num_frames": 81, "model": ["1", 0] },
-    "class_type": "WanVideoImageToVideoEncode",
-    "_meta": { "title": "I2V Encode" }
+    "inputs": {
+      "vae": ["9", 0],
+      "width": 832,
+      "height": 480,
+      "length": 81,
+      "batch_size": 1,
+      "start_image": ["2", 0]
+    },
+    "class_type": "Wan22ImageToVideoLatent",
+    "_meta": { "title": "I2V latent" }
+  },
+  "11": {
+    "inputs": { "shift": 8.0, "model": ["1", 0] },
+    "class_type": "ModelSamplingSD3",
+    "_meta": { "title": "Sampling shift" }
+  },
+  "5": {
+    "inputs": {
+      "seed": 0,
+      "steps": 20,
+      "cfg": 5.0,
+      "sampler_name": "uni_pc",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["11", 0],
+      "positive": ["4", 0],
+      "negative": ["10", 0],
+      "latent_image": ["6", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "Sampler" }
   },
   "7": {
-    "inputs": { "samples": ["5", 0], "model": ["1", 0] },
-    "class_type": "WanVideoDecode",
+    "inputs": { "samples": ["5", 0], "vae": ["9", 0] },
+    "class_type": "VAEDecode",
     "_meta": { "title": "Decode" }
   },
   "8": {
-    "inputs": { "images": ["7", 0], "frame_rate": 16, "filename_prefix": "uncensored-studio/wan-i2v", "format": "video/h264-mp4", "save_metadata": true, "crf": 19 },
+    "inputs": {
+      "images": ["7", 0],
+      "frame_rate": 16,
+      "loop_count": 0,
+      "filename_prefix": "uncensored-studio/wan-i2v",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true,
+      "save_metadata": true,
+      "crf": 19
+    },
     "class_type": "VHS_VideoCombine",
     "_meta": { "title": "Save Video" }
   }

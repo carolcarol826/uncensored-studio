@@ -382,32 +382,21 @@ export async function buildVideoWorkflow(params: I2VParams): Promise<Record<stri
     if (!node || typeof node !== 'object') continue;
     const n = node as { class_type?: string; inputs?: Record<string, any> };
     if (!n.inputs) continue;
-    // Native ComfyUI Wan path (wan22-ti2v-5b / -fp16): KSampler + EmptyHunyuanLatentVideo.
-    // This is what the shipped production/dev JSONs actually use — without
-    // these, every video ignored seed/steps/cfg/size and was fixed at 49 frames.
+    // All Wan graphs run on ComfyUI's native nodes. Without these the video
+    // ignored seed/steps/cfg/size and was fixed at whatever the JSON shipped.
     if (n.class_type === 'KSampler' || n.class_type === 'KSamplerAdvanced') {
       n.inputs.steps = params.steps;
       n.inputs.cfg = params.cfg;
       n.inputs.seed = params.seed;
     }
-    if (n.class_type === 'EmptyHunyuanLatentVideo') {
+    // text2video seeds an empty latent; img2video seeds one from the upload.
+    if (
+      n.class_type === 'EmptyHunyuanLatentVideo' ||
+      n.class_type === 'Wan22ImageToVideoLatent'
+    ) {
       n.inputs.width = params.width;
       n.inputs.height = params.height;
       n.inputs.length = params.numFrames;
-    }
-    // WanVideoWrapper path (wan22-i2v): WanVideoSampler + WanVideoImageToVideoEncode.
-    if (n.class_type === 'WanVideoSampler') {
-      n.inputs.steps = params.steps;
-      n.inputs.cfg = params.cfg;
-      n.inputs.seed = params.seed;
-      if ('width' in n.inputs) n.inputs.width = params.width;
-      if ('height' in n.inputs) n.inputs.height = params.height;
-      if ('num_frames' in n.inputs) n.inputs.num_frames = params.numFrames;
-    }
-    if (n.class_type === 'WanVideoImageToVideoEncode') {
-      n.inputs.width = params.width;
-      n.inputs.height = params.height;
-      n.inputs.num_frames = params.numFrames;
     }
   }
 
