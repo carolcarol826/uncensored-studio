@@ -10,6 +10,12 @@ export interface WorkflowMeta {
   description: string;
   vramHint: string;
   requiredCustomNodes?: string[];
+  /**
+   * Depends on weights only the local dev box carries (GGUF quants and the
+   * like). Hidden when running against RunPod, where picking it is a
+   * guaranteed failure rather than a slower option.
+   */
+  localOnly?: boolean;
 }
 
 export const WORKFLOWS: WorkflowMeta[] = [
@@ -26,6 +32,8 @@ export const WORKFLOWS: WorkflowMeta[] = [
     category: 'text2img',
     description: 'Flux.1-schnell 4-step 快速生成，推荐 GGUF Q4 量化版',
     vramHint: '8 GB VRAM · GGUF Q4',
+    // Needs ae/t5xxl/clip_l plus a Flux unet; none are on the volume.
+    localOnly: true,
   },
   {
     id: 'sdxl-i2i',
@@ -49,6 +57,8 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: 'Wan 2.2 TI2V-5B Q4 量化，8GB VRAM 友好（本地开发）',
     vramHint: '8-12 GB VRAM',
     requiredCustomNodes: ['ComfyUI-WanVideoWrapper', 'ComfyUI-VideoHelperSuite'],
+    // Wants a .gguf quant and wan_2.1_vae; production hosts neither.
+    localOnly: true,
   },
   {
     id: 'wan22-ti2v-5b-fp16',
@@ -65,6 +75,8 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: '上传一张人脸，生成同一角色的多种场景。SDXL 路线最稳。',
     vramHint: '8 GB VRAM',
     requiredCustomNodes: ['ComfyUI_PuLID（cubiq/sipie800）'],
+    // PuLID weights + InsightFace are not on the volume yet.
+    localOnly: true,
   },
   {
     id: 'pulid-flux-t2i',
@@ -73,6 +85,8 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: 'Flux schnell GGUF Q4 + PuLID，质量更高但更慢',
     vramHint: '8 GB VRAM（紧凑，需 GGUF Q4）',
     requiredCustomNodes: ['ComfyUI-PuLID-Flux-Enhanced', 'ComfyUI-GGUF'],
+    // GGUF Flux plus the PuLID-Flux stack; none are on the volume.
+    localOnly: true,
   },
   {
     id: 'sdxl-controlnet',
@@ -81,6 +95,8 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: '上传参考图（人物 / 场景）→ AI 复刻姿势、深度或边缘构图',
     vramHint: '8-10 GB VRAM · SDXL + ControlNet',
     requiredCustomNodes: ['ComfyUI-Advanced-ControlNet', 'ComfyUI_controlnet_aux'],
+    // ControlNet weights are not on the volume yet.
+    localOnly: true,
   },
   {
     id: 'sdxl-inpaint',
@@ -92,8 +108,13 @@ export const WORKFLOWS: WorkflowMeta[] = [
 ];
 
 export function listWorkflows(category?: WorkflowMeta['category']): WorkflowMeta[] {
-  if (!category) return WORKFLOWS;
-  return WORKFLOWS.filter((w) => w.category === category);
+  // On RunPod only the weights we host can load, so a localOnly workflow is not
+  // a slower choice there — it is a job that always fails and has to be refunded.
+  const usable = process.env.INFERENCE_PROVIDER === 'runpod'
+    ? WORKFLOWS.filter((w) => !w.localOnly)
+    : WORKFLOWS;
+  if (!category) return usable;
+  return usable.filter((w) => w.category === category);
 }
 
 export async function loadWorkflow(id: string): Promise<Record<string, unknown>> {

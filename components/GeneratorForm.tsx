@@ -148,6 +148,10 @@ export default function GeneratorForm({
     setError('');
     setProgress(null);
 
+    if (workflows.length === 0) {
+      setError(t('gen.modeUnavailable'));
+      return;
+    }
     if (!checkpoint) {
       setError(t('gen.pickModelFirst'));
       return;
@@ -304,11 +308,15 @@ export default function GeneratorForm({
               value={workflowId}
               onChange={(e) => setWorkflowId(e.target.value)}
             >
-              {workflows.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name} · {w.vramHint}
-                </option>
-              ))}
+              {workflows.length === 0 ? (
+                <option>{t('gen.modeUnavailable')}</option>
+              ) : (
+                workflows.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} · {w.vramHint}
+                  </option>
+                ))
+              )}
             </select>
             {workflows.find((w) => w.id === workflowId)?.requiredCustomNodes && (
               <div className="text-xs text-warning mt-1">
