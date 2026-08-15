@@ -351,7 +351,9 @@ export default function GeneratorForm({
   };
 
   return (
-    <div className="space-y-6">
+    // The shell no longer caps page width (the gallery needs the room), so the
+    // form keeps its own measure rather than stretching across a wide monitor.
+    <div className="space-y-6 max-w-6xl">
       {pickerOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"

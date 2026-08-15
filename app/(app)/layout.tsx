@@ -7,7 +7,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* On mobile: top padding for fixed header; no left margin (sidebar is drawer)
           On md+: left margin for fixed sidebar; no top header */}
       <main className="flex-1 md:ml-64 pt-14 md:pt-0 overflow-x-hidden">
-        <div className="max-w-7xl mx-auto p-4 md:p-8">{children}</div>
+        {/* No width cap: 7xl left a wide screen mostly empty either side of the
+            gallery grid. Pages that want a narrower measure set it themselves. */}
+        <div className="p-4 md:p-8">{children}</div>
       </main>
     </div>
   );

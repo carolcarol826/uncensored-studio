@@ -258,10 +258,9 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {/* Six across on any normal desktop width, stepping down only for small
-          screens. Tiles keep the 561:692 portrait shape and take whatever width
-          the column gives them — pinning the width instead fits only two. */}
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+      {/* Tight grid across the full width, the way a contact sheet reads:
+          thumbnails butt up against each other rather than floating in gaps. */}
+      <div className="grid gap-1 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
         {visible.map((item) => {
           const id = item.outputId;
           const isChecked = !!id && checked.has(id);
