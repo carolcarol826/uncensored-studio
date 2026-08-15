@@ -18,5 +18,27 @@ RUN comfy-node-install \
       comfyui-advanced-controlnet \
       comfyui_controlnet_aux
 
+# PuLID (character consistency) — not in the comfy registry, install from source.
+# InsightFace needs a compiler for its native extension, and onnxruntime-gpu
+# runs the face detector; both are absent from the base image.
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir insightface onnxruntime-gpu facexlib
+
+RUN cd /comfyui/custom_nodes && \
+    git clone --depth 1 https://github.com/cubiq/PuLID_ComfyUI.git && \
+    pip install --no-cache-dir -r PuLID_ComfyUI/requirements.txt
+
+# worker-comfyui's extra_model_paths.yaml maps the stock folder types only, so
+# PuLID's own two would be invisible on the network volume. HF_HOME moves the
+# EVA-CLIP download onto the volume as well — otherwise every cold start pulls
+# it again, since the container filesystem does not survive.
+ENV HF_HOME=/runpod-volume/hf
+RUN CFG=$(find / -maxdepth 3 -name extra_model_paths.yaml -not -path '*/node_modules/*' | head -1) && \
+    test -n "$CFG" && \
+    printf '  pulid: models/pulid/\n  insightface: models/insightface/\n' >> "$CFG" && \
+    echo "--- $CFG ---" && cat "$CFG"
+
 RUN ls -la /comfyui/custom_nodes/ && \
-    echo "SDXL+ControlNet worker ready"
+    echo "SDXL + ControlNet + PuLID worker ready"
