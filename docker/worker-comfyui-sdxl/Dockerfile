@@ -40,5 +40,13 @@ RUN CFG=$(find / -maxdepth 3 -name extra_model_paths.yaml -not -path '*/node_mod
     printf '  pulid: models/pulid/\n  insightface: models/insightface/\n' >> "$CFG" && \
     echo "--- $CFG ---" && cat "$CFG"
 
+# PulidInsightFaceLoader builds its path from folder_paths.models_dir directly
+# instead of going through folder_names_and_paths, so the yaml entry above never
+# reaches it and it only ever looks locally. Point the local directory at the
+# volume; the target appears when the volume mounts at run time.
+RUN rm -rf /comfyui/models/insightface && \
+    ln -s /runpod-volume/models/insightface /comfyui/models/insightface && \
+    ls -la /comfyui/models/ | grep insightface
+
 RUN ls -la /comfyui/custom_nodes/ && \
     echo "SDXL + ControlNet + PuLID worker ready"
