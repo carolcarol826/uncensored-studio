@@ -18,6 +18,8 @@ interface GalleryItem {
   prompt?: string;
   seed?: number;
   generationId?: string;
+  /** Opaque handle for reusing this output as a reference image. DB path only. */
+  outputId?: string;
 }
 
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
@@ -48,6 +50,7 @@ export async function GET() {
             prompt: g.prompt,
             seed: Number(g.seed),
             generationId: g.id,
+            outputId: o.id,
           });
         }
       }

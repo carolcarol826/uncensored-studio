@@ -22,6 +22,15 @@ interface Output {
   filename: string;
 }
 
+/** A gallery entry offered as a reference image. */
+interface GalleryPick {
+  url: string;
+  type: 'image' | 'video';
+  filename: string;
+  outputId?: string;
+  prompt?: string;
+}
+
 interface Props {
   mode: Mode;
   /** Override the auto-resolved title. Kept for legacy callers; new code can omit. */
@@ -93,6 +102,9 @@ export default function GeneratorForm({
   const [inputImagePreview, setInputImagePreview] = useState<string>('');
   const [uploading, setUploading] = useState(false);
 
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerItems, setPickerItems] = useState<GalleryPick[] | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<{
     status: string;
@@ -125,6 +137,45 @@ export default function GeneratorForm({
       }
     })();
   }, [mode]);
+
+  const openPicker = async () => {
+    setPickerOpen(true);
+    if (pickerItems) return;
+    try {
+      const r = await fetch('/api/gallery');
+      const d = await r.json();
+      // Videos cannot seed a reference, and the local-dev gallery path has no
+      // outputId to hand back, so both are filtered out rather than offered
+      // as choices that would fail on click.
+      setPickerItems(
+        (d.items ?? []).filter((i: GalleryPick) => i.type === 'image' && i.outputId)
+      );
+    } catch (e: any) {
+      setPickerItems([]);
+      setError(`${t('gen.pickerFailed')}: ${e.message}`);
+    }
+  };
+
+  const pickFromGallery = async (item: GalleryPick) => {
+    setPickerOpen(false);
+    setUploading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/upload/from-gallery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outputId: item.outputId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed');
+      setInputImage(data.filename);
+      setInputImagePreview(item.url);
+    } catch (e: any) {
+      setError(`${t('gen.pickerFailed')}: ${e.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const onUpload = async (file: File) => {
     setUploading(true);
@@ -275,6 +326,47 @@ export default function GeneratorForm({
 
   return (
     <div className="space-y-6">
+      {pickerOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setPickerOpen(false)}
+        >
+          <div
+            className="card max-w-3xl w-full max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-medium">{t('gen.pickerTitle')}</div>
+              <button className="btn-ghost text-sm" onClick={() => setPickerOpen(false)}>
+                ✕
+              </button>
+            </div>
+            {pickerItems === null ? (
+              <div className="text-sm text-fg-muted py-8 text-center">
+                {t('gen.pickerLoading')}
+              </div>
+            ) : pickerItems.length === 0 ? (
+              <div className="text-sm text-fg-muted py-8 text-center">
+                {t('gen.pickerEmpty')}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {pickerItems.map((it) => (
+                  <button
+                    key={it.outputId}
+                    onClick={() => pickFromGallery(it)}
+                    title={it.prompt}
+                    className="rounded border border-bg-border hover:border-accent overflow-hidden"
+                  >
+                    <img src={it.url} alt={it.filename} className="w-full aspect-square object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <header className="space-y-1">
         <h1 className="text-2xl font-bold">{effectiveTitle}</h1>
         <p className="text-sm text-fg-muted">
@@ -349,6 +441,14 @@ export default function GeneratorForm({
           {showImageUpload && (
             <div>
               <label className="label">{effectiveImageLabel}</label>
+              <button
+                type="button"
+                onClick={openPicker}
+                className="btn-secondary text-sm w-full mb-2"
+              >
+                🖼 {t('gen.pickFromGallery')}
+              </button>
+              <div className="text-xs text-fg-subtle mb-1">{t('gen.orUpload')}</div>
               <input
                 type="file"
                 accept="image/*"

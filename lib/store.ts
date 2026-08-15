@@ -542,6 +542,30 @@ export async function addOutputFile(args: {
   });
 }
 
+/**
+ * An output file, but only if the generation that produced it belongs to
+ * `userId`. Ownership is part of the query rather than a check the caller has
+ * to remember, so an id guessed from another account simply finds nothing.
+ */
+export async function getOwnedOutput(
+  userId: string,
+  outputId: string
+): Promise<{ key: string; kind: string } | null> {
+  if (isDbSkipped) {
+    for (const g of mockGenerations.values()) {
+      if (g.userId !== userId) continue;
+      const hit = (g.outputs ?? []).find((o: any) => o.id === outputId);
+      if (hit) return { key: hit.key, kind: hit.kind };
+    }
+    return null;
+  }
+  const out = await prisma.outputFile.findFirst({
+    where: { id: outputId, generation: { userId } },
+    select: { key: true, kind: true },
+  });
+  return out ?? null;
+}
+
 export async function listGenerations(userId: string, limit = 100) {
   if (isDbSkipped) {
     return Array.from(mockGenerations.values())
