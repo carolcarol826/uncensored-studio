@@ -5,8 +5,8 @@
 #   - ComfyUI-Advanced-ControlNet (Kosinkadink) — advanced ControlNet apply nodes
 #   - ComfyUI_controlnet_aux (Fannovel16) — pose/depth/canny/softedge preprocessors
 #
-# ControlNet model files are NOT baked in — they live on the Network Volume
-# at /runpod-volume/models/controlnet/ so we keep the image small.
+# Frequently used weights are baked in (see the download step below); the
+# occasional ones — noobai, ControlNet, PuLID, Wan — stay on the Network Volume.
 #
 # Auxiliary preprocessor weights (DWPose etc.) are auto-downloaded on first
 # call by ComfyUI_controlnet_aux; flashboot caches them so cold-start penalty
@@ -54,5 +54,27 @@ RUN rm -rf /comfyui/models/insightface && \
     ln -s /runpod-volume/models/insightface /comfyui/models/insightface && \
     ls -la /comfyui/models/ | grep insightface
 
+# Weights that every job touches are baked in rather than read from the network
+# volume. A volume read is documented as slow — around three minutes to pull a
+# 7GB checkpoint — and that whole wait is billed GPU time on each cold start.
+# Image layers are cached on the host, so the same files cost seconds instead.
+# The occasional ones (noobai, ControlNet, PuLID, Wan) stay on the volume: they
+# would add tens of gigabytes here to save a cold start hardly anyone pays.
+RUN mkdir -p /comfyui/models/checkpoints /comfyui/models/loras \
+             /comfyui/models/ipadapter /comfyui/models/clip_vision && \
+    wget -q --show-progress --progress=dot:giga \
+      -O /comfyui/models/checkpoints/lustify-v2.0.safetensors \
+      https://huggingface.co/shootstuff/LUSTIFY-v2.0/resolve/main/lustifySDXLNSFWSFW_v20.safetensors && \
+    wget -q --show-progress --progress=dot:giga \
+      -O /comfyui/models/loras/sdxl_lightning_8step_lora.safetensors \
+      https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_8step_lora.safetensors && \
+    wget -q --show-progress --progress=dot:giga \
+      -O /comfyui/models/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors \
+      https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors && \
+    wget -q --show-progress --progress=dot:giga \
+      -O /comfyui/models/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors \
+      https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors && \
+    du -sh /comfyui/models/*
+
 RUN ls -la /comfyui/custom_nodes/ && \
-    echo "SDXL + ControlNet + PuLID + IPAdapter worker ready"
+    echo "SDXL + ControlNet + PuLID + IPAdapter worker ready (weights baked)"
