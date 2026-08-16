@@ -1,0 +1,60 @@
+{
+  "_comment": "SDXL text-to-image through the ByteDance Lightning 8-step LoRA. Eight steps at CFG 1.5 lands close to the 25-step result while costing roughly a quarter of the GPU time, which is most of what a generation costs us. Lightning is distilled for few steps: it wants a low CFG and the sgm_uniform schedule, and raising either back to normal values washes the image out. The LoRA is baked into the worker image. Placeholders: __CKPT__, __POSITIVE__, __NEGATIVE__.",
+  "4": {
+    "inputs": { "ckpt_name": "__CKPT__" },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Checkpoint" }
+  },
+  "10": {
+    "inputs": {
+      "lora_name": "sdxl_lightning_8step_lora.safetensors",
+      "strength_model": 1.0,
+      "strength_clip": 1.0,
+      "model": ["4", 0],
+      "clip": ["4", 1]
+    },
+    "class_type": "LoraLoader",
+    "_meta": { "title": "Lightning 8-step LoRA" }
+  },
+  "3": {
+    "inputs": {
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1.5,
+      "sampler_name": "euler",
+      "scheduler": "sgm_uniform",
+      "denoise": 1,
+      "model": ["10", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "KSampler" }
+  },
+  "5": {
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "Latent" }
+  },
+  "6": {
+    "inputs": { "text": "__POSITIVE__", "clip": ["10", 1] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive" }
+  },
+  "7": {
+    "inputs": { "text": "__NEGATIVE__", "clip": ["10", 1] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative" }
+  },
+  "8": {
+    "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "VAE Decode" }
+  },
+  "9": {
+    "inputs": { "filename_prefix": "uncensored-studio/img", "images": ["8", 0] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save" }
+  }
+}

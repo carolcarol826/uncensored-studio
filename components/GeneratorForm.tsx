@@ -150,6 +150,21 @@ export default function GeneratorForm({
     })();
   }, [mode]);
 
+
+  // Lightning is distilled for few steps and a low CFG. The form's usual 25/7
+  // would undo the speed-up and wash the image out, so selecting it moves the
+  // sliders to what it expects — still editable afterwards.
+  useEffect(() => {
+    if (!workflowId) return;
+    if (workflowId.includes('lightning')) {
+      setSteps(8);
+      setCfg(1.5);
+    } else {
+      setSteps(defaultSteps);
+      setCfg(defaultCfg);
+    }
+  }, [workflowId]);
+
   const openPicker = async () => {
     setPickerOpen(true);
     if (pickerItems) return;

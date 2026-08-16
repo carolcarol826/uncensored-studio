@@ -20,6 +20,15 @@ export interface WorkflowMeta {
 
 export const WORKFLOWS: WorkflowMeta[] = [
   {
+    id: 'sdxl-lightning-t2i',
+    name: 'SDXL 快速出图 (Lightning 8 步)',
+    category: 'text2img',
+    description: '8 步出图，速度约 3 倍、成本约 1/4，质量接近标准模式。日常首选',
+    vramHint: '6-8 GB VRAM · 1024×1024',
+    // Weights are baked into the worker image; nothing extra to fetch.
+    localOnly: false,
+  },
+  {
     id: 'sdxl-t2i',
     name: 'SDXL 文生图',
     category: 'text2img',
