@@ -118,6 +118,11 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: '上传人物图 + 服装图 → 涂抹要换的衣服区域 → 人物穿上该服装',
     vramHint: '8-10 GB VRAM · SDXL + IP-Adapter',
     requiredCustomNodes: ['ComfyUI_IPAdapter_plus'],
+    // Withdrawn: IP-Adapter treats the garment as a style hint and repaints the
+    // whole frame, so the face, the room and the garment itself all came back
+    // wrong. Its weights have also been removed from the volume to make room
+    // for the Qwen-Image-Edit route that replaces it.
+    localOnly: true,
   },
   {
     id: 'sdxl-inpaint',

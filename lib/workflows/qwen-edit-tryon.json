@@ -1,0 +1,114 @@
+{
+  "_comment": "Virtual try-on through Qwen-Image-Edit 2511, wired to match ComfyUI's own image_qwen_image_edit_2511 template rather than guessed at. Instruction editing with two reference images: TextEncodeQwenImageEditPlus feeds both pictures to the Qwen2.5-VL encoder for semantics and to the VAE for appearance, and the sampler starts from the person's own latent — which is what keeps the face. ModelSamplingAuraFlow and CFGNorm are required in front of the sampler, both conditionings must pass through FluxKontextMultiReferenceLatentMethod for multi-image reference to work, and the Lightning LoRA fixes steps at 4 with CFG 1. Prompts address the pictures as 'image 1' and 'image 2', the phrasing the model was trained on. Placeholders: __POSITIVE__, __PERSON_IMAGE__, __GARMENT_IMAGE__.",
+  "1": {
+    "inputs": { "unet_name": "qwen_image_edit_2511_fp8mixed.safetensors", "weight_dtype": "default" },
+    "class_type": "UNETLoader",
+    "_meta": { "title": "Qwen-Image-Edit 2511" }
+  },
+  "2": {
+    "inputs": { "model": ["1", 0], "shift": 3.1 },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": { "title": "Model sampling" }
+  },
+  "3": {
+    "inputs": { "model": ["2", 0], "strength": 1.0 },
+    "class_type": "CFGNorm",
+    "_meta": { "title": "CFG norm" }
+  },
+  "4": {
+    "inputs": {
+      "model": ["3", 0],
+      "lora_name": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+      "strength_model": 1.0
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": { "title": "Lightning 4-step LoRA" }
+  },
+  "5": {
+    "inputs": { "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default" },
+    "class_type": "CLIPLoader",
+    "_meta": { "title": "Qwen2.5-VL" }
+  },
+  "6": {
+    "inputs": { "vae_name": "qwen_image_vae.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "Qwen VAE" }
+  },
+  "10": {
+    "inputs": { "image": "__PERSON_IMAGE__", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "Person" }
+  },
+  "11": {
+    "inputs": { "image": "__GARMENT_IMAGE__", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "Garment" }
+  },
+  "12": {
+    "inputs": { "image": ["10", 0] },
+    "class_type": "FluxKontextImageScale",
+    "_meta": { "title": "Fit person to a supported size" }
+  },
+  "20": {
+    "inputs": {
+      "clip": ["5", 0],
+      "prompt": "__POSITIVE__",
+      "vae": ["6", 0],
+      "image1": ["12", 0],
+      "image2": ["11", 0]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": { "title": "Positive (person + garment)" }
+  },
+  "21": {
+    "inputs": {
+      "clip": ["5", 0],
+      "prompt": "",
+      "vae": ["6", 0],
+      "image1": ["12", 0]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": { "title": "Negative" }
+  },
+  "22": {
+    "inputs": { "conditioning": ["20", 0], "reference_latents_method": "index_timestep_zero" },
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "_meta": { "title": "Positive refs" }
+  },
+  "23": {
+    "inputs": { "conditioning": ["21", 0], "reference_latents_method": "index_timestep_zero" },
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "_meta": { "title": "Negative refs" }
+  },
+  "30": {
+    "inputs": { "pixels": ["12", 0], "vae": ["6", 0] },
+    "class_type": "VAEEncode",
+    "_meta": { "title": "Person latent" }
+  },
+  "40": {
+    "inputs": {
+      "seed": 0,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": ["4", 0],
+      "positive": ["22", 0],
+      "negative": ["23", 0],
+      "latent_image": ["30", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "Sampler" }
+  },
+  "50": {
+    "inputs": { "samples": ["40", 0], "vae": ["6", 0] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode" }
+  },
+  "60": {
+    "inputs": { "filename_prefix": "myhim-qwen-tryon", "images": ["50", 0] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save" }
+  }
+}
