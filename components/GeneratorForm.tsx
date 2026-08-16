@@ -14,6 +14,7 @@ interface WorkflowMeta {
   description: string;
   vramHint: string;
   requiredCustomNodes?: string[];
+  selfContained?: boolean;
 }
 
 interface Output {
@@ -88,6 +89,14 @@ export default function GeneratorForm({
     controlnet: t('gen.page.controlnetTitle'),
   };
   const effectiveTitle = title ?? titleByMode[mode];
+  // A filename tells the user nothing about what they will get. Name the look
+  // instead, and fall back to the raw name for anything not in the list.
+  const modelLabel = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('lustify')) return '写实风格';
+    if (n.includes('noobai') || n.includes('illustrious')) return '动漫风格';
+    return name;
+  };
   const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
   const [checkpoints, setCheckpoints] = useState<string[]>([]);
   const [comfyOnline, setComfyOnline] = useState<boolean>(true);
@@ -164,6 +173,10 @@ export default function GeneratorForm({
       setCfg(defaultCfg);
     }
   }, [workflowId]);
+
+  // Graphs that name their own weights have nothing for the user to pick and a
+  // sampler whose settings must not be touched.
+  const selfContained = workflows.find((w) => w.id === workflowId)?.selfContained ?? false;
 
   const openPicker = async () => {
     setPickerOpen(true);
@@ -244,7 +257,7 @@ export default function GeneratorForm({
       setError(t('gen.modeUnavailable'));
       return;
     }
-    if (!checkpoint) {
+    if (!checkpoint && !selfContained) {
       setError(t('gen.pickModelFirst'));
       return;
     }
@@ -262,18 +275,22 @@ export default function GeneratorForm({
       const body: any = {
         mode,
         workflowId,
-        checkpoint,
         positive,
         negative,
         width,
         height,
-        steps,
-        cfg,
         seed: seed > 0 ? seed : 0,
         batchSize,
       };
+      // Sending these to a self-contained graph would override the sampler
+      // settings its Lightning LoRA depends on.
+      if (!selfContained) {
+        body.checkpoint = checkpoint;
+        body.steps = steps;
+        body.cfg = cfg;
+      }
       if (showImageUpload) body.inputImage = inputImage;
-      if (showDenoise) body.denoise = denoise;
+      if (showDenoise && !selfContained) body.denoise = denoise;
       if (showVideoParams) body.numFrames = numFrames;
       if (showPulidWeight) body.pulidWeight = pulidWeight;
       if (showControlType) {
@@ -461,25 +478,27 @@ export default function GeneratorForm({
             )}
           </div>
 
-          <div>
-            <label className="label">{t('gen.model')}</label>
-            <select
-              className="input"
-              value={checkpoint}
-              onChange={(e) => setCheckpoint(e.target.value)}
-              disabled={checkpoints.length === 0}
-            >
-              {checkpoints.length === 0 ? (
-                <option>{t('gen.noModels')}</option>
-              ) : (
-                checkpoints.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
+          {!selfContained && (
+            <div>
+              <label className="label">{t('gen.model')}</label>
+              <select
+                className="input"
+                value={checkpoint}
+                onChange={(e) => setCheckpoint(e.target.value)}
+                disabled={checkpoints.length === 0}
+              >
+                {checkpoints.length === 0 ? (
+                  <option>{t('gen.noModels')}</option>
+                ) : (
+                  checkpoints.map((c) => (
+                    <option key={c} value={c}>
+                      {modelLabel(c)}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          )}
 
           {showImageUpload && (
             <div>
@@ -555,29 +574,31 @@ export default function GeneratorForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">{t('gen.steps')}</label>
-              <input
-                type="number"
-                className="input"
-                value={steps}
-                onChange={(e) => setSteps(Number(e.target.value))}
-              />
+          {!selfContained && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">{t('gen.steps')}</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={steps}
+                  onChange={(e) => setSteps(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="label">CFG</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={cfg}
+                  step={0.5}
+                  onChange={(e) => setCfg(Number(e.target.value))}
+                />
+              </div>
             </div>
-            <div>
-              <label className="label">CFG</label>
-              <input
-                type="number"
-                className="input"
-                value={cfg}
-                step={0.5}
-                onChange={(e) => setCfg(Number(e.target.value))}
-              />
-            </div>
-          </div>
+          )}
 
-          {showDenoise && (
+          {showDenoise && !selfContained && (
             <div>
               <label className="label">{t('gen.denoisePre')} {denoise}</label>
               <input

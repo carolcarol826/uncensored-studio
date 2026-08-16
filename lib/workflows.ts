@@ -40,6 +40,9 @@ export const WORKFLOWS: WorkflowMeta[] = [
     category: 'text2img',
     description: '通用 SDXL 工作流（Illustrious / NoobAI / Pony / 任意 SDXL checkpoint）',
     vramHint: '6-8 GB VRAM · 1024×1024',
+    // Same model and same output as the Lightning graph, at 3x the time and
+    // cost. Keeping both only asks the user a question with one right answer.
+    localOnly: true,
   },
   {
     id: 'flux-schnell-t2i',
@@ -51,11 +54,23 @@ export const WORKFLOWS: WorkflowMeta[] = [
     localOnly: true,
   },
   {
+    id: 'qwen-edit-i2i',
+    name: '图生图 (Qwen-Image-Edit)',
+    category: 'img2img',
+    description: '用一句话说明要改什么 — 支持中文，人物长相和场景保持不变',
+    vramHint: '24 GB VRAM · fp8 · 4 步',
+    selfContained: true,
+  },
+  {
     id: 'sdxl-i2i',
     name: 'SDXL 图生图',
     category: 'img2img',
     description: 'SDXL 模型的 image-to-image，含 denoise 强度',
     vramHint: '6-8 GB VRAM',
+    // Withdrawn: SDXL reads prompts through CLIP, which understands no Chinese,
+    // so a Chinese prompt is ignored entirely and the sampler falls back to the
+    // checkpoint's own prior — a male source photo came back as a woman.
+    localOnly: true,
   },
   {
     id: 'wan22-i2v-14b',
@@ -72,6 +87,9 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: 'Wan 2.2 I2V (14B MoE，需 24GB VRAM 或更小量化版)',
     vramHint: '24 GB VRAM (FP16) · 8GB 需 Q4_K_S',
     requiredCustomNodes: ['ComfyUI-WanVideoWrapper', 'ComfyUI-VideoHelperSuite'],
+    // The 5B model loses the face on real photographs; the A14B graph above is
+    // the one that holds a likeness, so it is the only one offered.
+    localOnly: true,
   },
   {
     id: 'wan22-ti2v-5b',
@@ -217,15 +235,19 @@ export async function buildT2IWorkflow(params: T2IParams): Promise<Record<string
   return result;
 }
 
-export interface I2IParams extends T2IParams {
+export interface I2IParams extends Omit<T2IParams, 'checkpoint' | 'steps' | 'cfg'> {
   inputImage: string;
-  denoise: number;
+  /** All three are fixed by the graph on a self-contained (Qwen) workflow. */
+  checkpoint?: string;
+  steps?: number;
+  cfg?: number;
+  denoise?: number;
 }
 
 export async function buildI2IWorkflow(params: I2IParams): Promise<Record<string, unknown>> {
   const wf = await loadWorkflow(params.workflowId);
   const json = JSON.stringify(wf)
-    .replace(/__CKPT__/g, params.checkpoint)
+    .replace(/__CKPT__/g, params.checkpoint ?? '')
     .replace(/__POSITIVE__/g, escapeForJson(params.positive))
     .replace(/__NEGATIVE__/g, escapeForJson(params.negative))
     .replace(/__INPUT_IMAGE__/g, escapeForJson(params.inputImage));
@@ -237,10 +259,12 @@ export async function buildI2IWorkflow(params: I2IParams): Promise<Record<string
     const n = node as { class_type?: string; inputs?: Record<string, unknown> };
     if (!n.inputs) continue;
     if (n.class_type === 'KSampler') {
-      n.inputs.steps = params.steps;
-      n.inputs.cfg = params.cfg;
+      // Qwen's Lightning LoRA converges only at the graph's own 4 steps / CFG 1,
+      // and its edit strength comes from the instruction, not from denoise.
+      if (params.steps != null) n.inputs.steps = params.steps;
+      if (params.cfg != null) n.inputs.cfg = params.cfg;
+      if (params.denoise != null) n.inputs.denoise = params.denoise;
       n.inputs.seed = params.seed;
-      n.inputs.denoise = params.denoise;
     }
     // Without this the latent inherits the upload's dimensions: a phone photo
     // would sample at 4000px and a thumbnail would sample far below what SDXL

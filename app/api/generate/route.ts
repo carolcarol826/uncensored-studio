@@ -150,12 +150,13 @@ export async function POST(req: NextRequest) {
           negative: body.negative ?? '',
           width: body.width ?? 1024,
           height: body.height ?? 1024,
-          steps: body.steps ?? 25,
-          cfg: body.cfg ?? 7,
+          // Left undefined on a self-contained graph so its own values stand.
+          steps: needsCheckpoint ? body.steps ?? 25 : undefined,
+          cfg: needsCheckpoint ? body.cfg ?? 7 : undefined,
           seed,
           batchSize: 1,
           inputImage: body.inputImage,
-          denoise: body.denoise ?? 0.65,
+          denoise: needsCheckpoint ? body.denoise ?? 0.65 : undefined,
         });
         break;
       case 'character':
