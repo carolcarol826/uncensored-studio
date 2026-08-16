@@ -298,7 +298,7 @@ const zh: Dict = {
   },
   gen: {
     page: {
-      text2imgTitle: '文生图', text2imgDesc: '输入 prompt，从 SDXL / Flux 模型生成图片',
+      text2imgTitle: '文生图', text2imgDesc: '输入描述生成图片。⚠️ 本页请用英文描述 —— 底层模型只认英文，中文会被忽略。想用中文请去「图生图」',
       img2imgTitle: '图生图', img2imgDesc: '上传一张图，用一句话说明要改成什么样（支持中文）。人物长相和场景会保持不变',
       img2videoTitle: '图生视频', img2videoDesc: '上传图，让它根据 prompt 动起来（Wan 2.2 I2V）',
       text2videoTitle: '文生视频', text2videoDesc: '纯文本到视频（Wan 2.2 TI2V-5B）',
@@ -772,7 +772,7 @@ const en: Dict = {
   },
   gen: {
     page: {
-      text2imgTitle: 'Text → Image', text2imgDesc: 'Type a prompt, get an image from SDXL / Flux',
+      text2imgTitle: 'Text → Image', text2imgDesc: 'Type a prompt, get an image. Write it in English — the model behind this page reads no other language',
       img2imgTitle: 'Image → Image', img2imgDesc: 'Upload a picture and say what to change in one line. The face and the scene stay as they are',
       img2videoTitle: 'Image → Video', img2videoDesc: 'Animate your image with a prompt (Wan 2.2 I2V)',
       text2videoTitle: 'Text → Video', text2videoDesc: 'Pure text → video (Wan 2.2 TI2V-5B)',
