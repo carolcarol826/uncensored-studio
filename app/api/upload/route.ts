@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { uploadImage } from '@/lib/comfy';
 import { provider as inferenceProvider } from '@/lib/inference';
 import { putObject, inputImageKey, sanitizeFilename } from '@/lib/storage';
+import { createGeneration, addOutputFile, updateGenerationStatus } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,16 +45,48 @@ export async function POST(req: NextRequest) {
     }
 
     const safeName = sanitizeFilename(`${Date.now()}-${file.name}`);
+    // Masks are a by-product of painting, not something anyone wants to find
+    // in their gallery later.
+    const isMask = (formData.get('purpose') as string | null) === 'mask';
 
     // RunPod serverless has no long-lived ComfyUI to POST to — the reference
     // image travels inline with the job. Park it in object storage now and
     // /api/generate hands it to the worker at submit time.
     if (inferenceProvider === 'runpod') {
-      await putObject({
-        key: inputImageKey(session.user.id, safeName),
-        data: buffer,
-        contentType: sniffed,
-      });
+      const key = inputImageKey(session.user.id, safeName);
+      await putObject({ key, data: buffer, contentType: sniffed });
+
+      // Also record it so the picture shows up in the gallery: a reference
+      // uploaded on a generator page used to vanish the moment the page was
+      // left, with no way to reach it again.
+      if (!isMask) {
+        try {
+          const gen = await createGeneration({
+            userId: session.user.id,
+            kind: 'UPLOAD' as never,
+            workflowId: 'upload',
+            checkpoint: '-',
+            prompt: file.name.slice(0, 200),
+            width: 0,
+            height: 0,
+            steps: 0,
+            cfg: 0,
+            seed: BigInt(0),
+            costCredits: 0,
+          });
+          await addOutputFile({
+            generationId: gen.id,
+            kind: 'image',
+            key,
+            sizeBytes: buffer.length,
+          });
+          await updateGenerationStatus(gen.id, 'COMPLETED');
+        } catch {
+          // The upload itself succeeded and the caller can generate with it;
+          // failing to list it is not worth rejecting the request over.
+        }
+      }
+
       return NextResponse.json({ filename: safeName });
     }
 

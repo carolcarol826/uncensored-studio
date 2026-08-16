@@ -191,6 +191,7 @@ export default function TryonPage() {
     // Always re-uploaded: the user may have redrawn it since the last run.
     const fd3 = new FormData();
     fd3.append('file', maskBlob, `mask-${Date.now()}.png`);
+    fd3.append('purpose', 'mask');
     const r3 = await fetch('/api/upload', { method: 'POST', body: fd3 });
     const j3 = await r3.json();
     if (!r3.ok) throw new Error(j3.error || 'mask upload failed');

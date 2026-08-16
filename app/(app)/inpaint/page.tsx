@@ -108,6 +108,7 @@ export default function InpaintPage() {
     // Upload mask (always fresh — user may have re-drawn)
     const fd2 = new FormData();
     fd2.append('file', maskBlob, `mask-${Date.now()}.png`);
+    fd2.append('purpose', 'mask');
     const r2 = await fetch('/api/upload', { method: 'POST', body: fd2 });
     const j2 = await r2.json();
     if (!r2.ok) throw new Error(j2.error || 'mask upload failed');
