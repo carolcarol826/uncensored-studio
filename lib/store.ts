@@ -530,6 +530,13 @@ export async function addOutputFile(args: {
     }
     return;
   }
+  // The webhook and the browser's status poll can both finalize the same job,
+  // and each stored its own row — one picture appeared in the gallery twice.
+  const existing = await prisma.outputFile.findFirst({
+    where: { generationId: args.generationId, key: args.key },
+    select: { id: true },
+  });
+  if (existing) return;
   await prisma.outputFile.create({
     data: {
       generationId: args.generationId,
