@@ -12,7 +12,10 @@
 # call by ComfyUI_controlnet_aux; flashboot caches them so cold-start penalty
 # is one-time per worker.
 
-FROM runpod/worker-comfyui:5.5.0-sdxl
+# 5.5.0 was built in Oct 2025 and predates Qwen-Image-Edit 2511 — it loaded the
+# weights and sampled pure noise, because that ComfyUI does not know the
+# architecture. Track a build new enough to contain the Qwen edit nodes.
+FROM runpod/worker-comfyui:5.8.6-sdxl
 
 RUN comfy-node-install \
       comfyui-advanced-controlnet \
