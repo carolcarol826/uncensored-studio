@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import MaskCanvas from '@/components/MaskCanvas';
 import { useT } from '@/components/I18nProvider';
 
 interface WorkflowMeta {
@@ -24,23 +23,13 @@ interface GalleryPick {
   outputId?: string;
 }
 
-
-// Keep the upload's proportions. Scaling to a fixed square would stretch a
-// portrait photo, and sampling at the photo's native size runs out of VRAM,
-// so fit it inside an SDXL-sized budget on multiples of 8.
-function workingSizeFor(w: number, h: number): { width: number; height: number } {
-  const BUDGET = 1024 * 1024;
-  const round8 = (n: number) => Math.max(512, Math.round(n / 8) * 8);
-  const scale = Math.sqrt(BUDGET / (w * h));
-  return { width: round8(w * scale), height: round8(h * scale) };
-}
+/** Which of the two slots the gallery picker is currently filling. */
+type Slot = 'person' | 'garment';
 
 export default function TryonPage() {
   const t = useT();
   const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
-  const [checkpoints, setCheckpoints] = useState<string[]>([]);
   const [workflowId, setWorkflowId] = useState('');
-  const [checkpoint, setCheckpoint] = useState('');
 
   // Step 1 — the person being dressed.
   const [personFile, setPersonFile] = useState<File | null>(null);
@@ -52,18 +41,10 @@ export default function TryonPage() {
   const [garmentUrl, setGarmentUrl] = useState('');
   const [garmentRemote, setGarmentRemote] = useState('');
 
-  // Step 3 — which pixels to replace.
-  const [maskBlob, setMaskBlob] = useState<Blob | null>(null);
-  const [frame, setFrame] = useState({ width: 1024, height: 1024 });
-
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSlot, setPickerSlot] = useState<Slot | null>(null);
   const [pickerItems, setPickerItems] = useState<GalleryPick[] | null>(null);
 
-  const [positive, setPositive] = useState('');
-  const [negative, setNegative] = useState('low quality, blurry, deformed');
-  const [garmentWeight, setGarmentWeight] = useState(1.0);
-  const [steps, setSteps] = useState(30);
-  const [cfg, setCfg] = useState(7);
+  const [extra, setExtra] = useState('');
   const [seed, setSeed] = useState(0);
 
   const [uploading, setUploading] = useState(false);
@@ -74,39 +55,19 @@ export default function TryonPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [wf, h] = await Promise.all([
-          fetch('/api/workflows?category=tryon').then((r) => r.json()),
-          fetch('/api/health').then((r) => r.json()),
-        ]);
+        const wf = await fetch('/api/workflows?category=tryon').then((r) => r.json());
         setWorkflows(wf);
         if (wf[0]) setWorkflowId(wf[0].id);
-        if (h.checkpoints) {
-          setCheckpoints(h.checkpoints);
-          if (h.checkpoints[0]) setCheckpoint(h.checkpoints[0]);
-        }
       } catch (e: any) {
         setError(`${t('gen.initFailed')}: ${e.message}`);
       }
     })();
   }, []);
 
-  const measure = (url: string) => {
-    const img = new Image();
-    img.onload = () => {
-      if (img.naturalWidth && img.naturalHeight) {
-        setFrame(workingSizeFor(img.naturalWidth, img.naturalHeight));
-      }
-    };
-    img.src = url;
-  };
-
   const onSelectPerson = (f: File) => {
     setPersonFile(f);
-    const u = URL.createObjectURL(f);
-    setPersonUrl(u);
-    measure(u);
+    setPersonUrl(URL.createObjectURL(f));
     setPersonRemote('');
-    setMaskBlob(null);
     setProgress(null);
     setError('');
   };
@@ -118,8 +79,8 @@ export default function TryonPage() {
     setError('');
   };
 
-  const openPicker = async () => {
-    setPickerOpen(true);
+  const openPicker = async (slot: Slot) => {
+    setPickerSlot(slot);
     if (pickerItems) return;
     try {
       const r = await fetch('/api/gallery');
@@ -133,8 +94,10 @@ export default function TryonPage() {
     }
   };
 
-  const pickPerson = async (item: GalleryPick) => {
-    setPickerOpen(false);
+  const pickFromGallery = async (item: GalleryPick) => {
+    const slot = pickerSlot;
+    setPickerSlot(null);
+    if (!slot) return;
     setUploading(true);
     setError('');
     try {
@@ -146,13 +109,17 @@ export default function TryonPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'failed');
       // Already in storage, so there is no File to keep — remember the remote
-      // name and let the mask canvas draw from the CDN copy.
-      setPersonFile(null);
-      setPersonRemote(data.filename);
-      setPersonUrl(item.url);
-      measure(item.url);
-      setMaskBlob(null);
-      setProgress(null);
+      // name and preview from the CDN copy.
+      if (slot === 'person') {
+        setPersonFile(null);
+        setPersonRemote(data.filename);
+        setPersonUrl(item.url);
+        setProgress(null);
+      } else {
+        setGarmentFile(null);
+        setGarmentRemote(data.filename);
+        setGarmentUrl(item.url);
+      }
     } catch (e: any) {
       setError(`${t('gen.pickerFailed')}: ${e.message}`);
     } finally {
@@ -160,56 +127,53 @@ export default function TryonPage() {
     }
   };
 
-  const uploadAll = async (): Promise<{ person: string; garment: string; mask: string }> => {
+  const uploadAll = async (): Promise<{ person: string; garment: string }> => {
     if (!personUrl) throw new Error(t('tryon.needPerson'));
-    if (!garmentFile && !garmentRemote) throw new Error(t('tryon.needGarment'));
-    if (!maskBlob) throw new Error(t('tryon.needMask'));
+    if (!garmentUrl) throw new Error(t('tryon.needGarment'));
+
+    const push = async (file: File) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch('/api/upload', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'upload failed');
+      return j.filename as string;
+    };
 
     let person = personRemote;
     if (!person) {
       if (!personFile) throw new Error(t('tryon.needPerson'));
-      const fd = new FormData();
-      fd.append('file', personFile);
-      const r = await fetch('/api/upload', { method: 'POST', body: fd });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'person upload failed');
-      person = j.filename;
+      person = await push(personFile);
       setPersonRemote(person);
     }
 
     let garment = garmentRemote;
     if (!garment) {
-      const fd = new FormData();
-      fd.append('file', garmentFile!);
-      const r = await fetch('/api/upload', { method: 'POST', body: fd });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'garment upload failed');
-      garment = j.filename;
+      if (!garmentFile) throw new Error(t('tryon.needGarment'));
+      garment = await push(garmentFile);
       setGarmentRemote(garment);
     }
 
-    // Always re-uploaded: the user may have redrawn it since the last run.
-    const fd3 = new FormData();
-    fd3.append('file', maskBlob, `mask-${Date.now()}.png`);
-    fd3.append('purpose', 'mask');
-    const r3 = await fetch('/api/upload', { method: 'POST', body: fd3 });
-    const j3 = await r3.json();
-    if (!r3.ok) throw new Error(j3.error || 'mask upload failed');
-
-    return { person, garment, mask: j3.filename };
+    return { person, garment };
   };
 
   const submit = async () => {
     setError('');
     setProgress(null);
     if (workflows.length === 0) return setError(t('gen.modeUnavailable'));
-    if (!checkpoint) return setError(t('inpaint.selectModelFirst'));
 
     setSubmitting(true);
     setUploading(true);
     try {
-      const { person, garment, mask } = await uploadAll();
+      const { person, garment } = await uploadAll();
       setUploading(false);
+
+      // Qwen-Image-Edit is instruction-driven, so the request the model has to
+      // honour — keep the face, change only the clothing — is always sent. The
+      // user's own line is an addition to it, never a replacement.
+      const instruction = [t('tryon.defaultPrompt'), extra.trim()]
+        .filter(Boolean)
+        .join(' ');
 
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -217,19 +181,9 @@ export default function TryonPage() {
         body: JSON.stringify({
           mode: 'tryon',
           workflowId,
-          checkpoint,
-          // The garment image carries the look; the prompt only needs to name
-          // the kind of garment so the sampler has a noun to anchor on.
-          positive: positive.trim() || t('tryon.defaultPrompt'),
-          negative,
+          positive: instruction,
           inputImage: person,
           garmentImage: garment,
-          maskImage: mask,
-          garmentWeight,
-          width: frame.width,
-          height: frame.height,
-          steps,
-          cfg,
           seed: seed > 0 ? seed : 0,
         }),
       });
@@ -294,7 +248,7 @@ export default function TryonPage() {
           <div className="flex items-start gap-3">
             <img src={personUrl} alt="person" className="max-h-40 rounded border border-bg-border" />
             <button
-              onClick={() => { setPersonUrl(''); setPersonFile(null); setPersonRemote(''); setMaskBlob(null); }}
+              onClick={() => { setPersonUrl(''); setPersonFile(null); setPersonRemote(''); }}
               className="text-xs text-fg-muted hover:text-fg"
             >
               {t('inpaint.reselect')}
@@ -302,7 +256,7 @@ export default function TryonPage() {
           </div>
         ) : (
           <>
-            <button type="button" onClick={openPicker} className="btn-secondary w-full py-2 text-sm">
+            <button type="button" onClick={() => openPicker('person')} className="btn-secondary w-full py-2 text-sm">
               🖼️ {t('gen.pickFromGallery')}
             </button>
             <div className="text-xs text-fg-subtle">{t('gen.orUpload')}</div>
@@ -332,98 +286,63 @@ export default function TryonPage() {
               </button>
             </div>
           ) : (
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => e.target.files?.[0] && onSelectGarment(e.target.files[0])}
-              className="block w-full text-sm text-fg-muted file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer"
-            />
+            <>
+              <button type="button" onClick={() => openPicker('garment')} className="btn-secondary w-full py-2 text-sm">
+                🖼️ {t('gen.pickFromGallery')}
+              </button>
+              <div className="text-xs text-fg-subtle">{t('gen.orUpload')}</div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => e.target.files?.[0] && onSelectGarment(e.target.files[0])}
+                className="block w-full text-sm text-fg-muted file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer"
+              />
+            </>
           )}
         </section>
       )}
 
-      {/* Step 3 — mask + settings */}
+      {/* Step 3 — optional note, then go */}
       {personUrl && garmentUrl && (
-        <>
-          <section className="card space-y-3">
+        <section className="card space-y-4">
+          <div>
             <div className="text-sm font-medium">{t('tryon.step3')}</div>
-            <p className="text-xs text-fg-subtle">{t('tryon.step3Hint')}</p>
-            <MaskCanvas imageUrl={personUrl} onMaskChange={setMaskBlob} />
-          </section>
+            <p className="text-xs text-fg-subtle mt-1">{t('tryon.step3Hint')}</p>
+          </div>
 
-          <section className="card space-y-4">
-            <div>
-              <label className="label">{t('gen.model')}</label>
-              <select
-                className="input"
-                value={checkpoint}
-                onChange={(e) => setCheckpoint(e.target.value)}
-                disabled={checkpoints.length === 0}
-              >
-                {checkpoints.length === 0
-                  ? <option>{t('inpaint.noModels')}</option>
-                  : checkpoints.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+          <div>
+            <label className="label">{t('tryon.promptLabel')}</label>
+            <input
+              type="text"
+              className="input"
+              value={extra}
+              onChange={(e) => setExtra(e.target.value)}
+              placeholder={t('tryon.promptPlaceholder')}
+            />
+          </div>
+
+          <div>
+            <label className="label">{t('gen.seedPlaceholder')}</label>
+            <input type="number" className="input" value={seed} onChange={(e) => setSeed(Number(e.target.value))} />
+          </div>
+
+          {error && (
+            <div className="text-sm text-danger bg-danger/10 border border-danger/30 rounded p-2 whitespace-pre-wrap">
+              {error}
             </div>
+          )}
 
-            <div>
-              <label className="label">{t('tryon.promptLabel')}</label>
-              <input
-                type="text"
-                className="input"
-                value={positive}
-                onChange={(e) => setPositive(e.target.value)}
-                placeholder={t('tryon.promptPlaceholder')}
-              />
-            </div>
-
-            <div>
-              <label className="label">
-                {t('tryon.garmentWeight')} {garmentWeight.toFixed(2)}{' '}
-                <span className="text-xs text-fg-subtle">{t('tryon.garmentWeightHint')}</span>
-              </label>
-              <input
-                type="range"
-                className="w-full accent-accent"
-                min={0.3} max={1.5} step={0.05}
-                value={garmentWeight}
-                onChange={(e) => setGarmentWeight(Number(e.target.value))}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="label">{t('gen.steps')}</label>
-                <input type="number" className="input" value={steps} onChange={(e) => setSteps(Number(e.target.value))} min={10} max={60} />
-              </div>
-              <div>
-                <label className="label">CFG</label>
-                <input type="number" className="input" value={cfg} onChange={(e) => setCfg(Number(e.target.value))} step={0.5} min={1} max={15} />
-              </div>
-              <div>
-                <label className="label">{t('gen.seedPlaceholder')}</label>
-                <input type="number" className="input" value={seed} onChange={(e) => setSeed(Number(e.target.value))} />
-              </div>
-            </div>
-
-            {error && (
-              <div className="text-sm text-danger bg-danger/10 border border-danger/30 rounded p-2 whitespace-pre-wrap">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="button"
-              disabled={submitting || unavailable}
-              onClick={submit}
-              className="btn-primary w-full py-3 text-base font-semibold"
-            >
-              {submitting
-                ? (uploading ? t('inpaint.uploadingProgress') : `${t('inpaint.generatingProgress')} (${progress?.status ?? t('inpaint.queued')})`)
-                : t('tryon.submitBtn')}
-            </button>
-          </section>
-        </>
+          <button
+            type="button"
+            disabled={submitting || unavailable}
+            onClick={submit}
+            className="btn-primary w-full py-3 text-base font-semibold"
+          >
+            {submitting
+              ? (uploading ? t('inpaint.uploadingProgress') : `${t('inpaint.generatingProgress')} (${progress?.status ?? t('inpaint.queued')})`)
+              : t('tryon.submitBtn')}
+          </button>
+        </section>
       )}
 
       {progress?.outputs && progress.outputs.length > 0 && (
@@ -440,10 +359,10 @@ export default function TryonPage() {
         </section>
       )}
 
-      {pickerOpen && (
+      {pickerSlot && (
         <div
           className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-          onClick={() => setPickerOpen(false)}
+          onClick={() => setPickerSlot(null)}
         >
           <div
             className="bg-bg-card border border-bg-border rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto p-4"
@@ -460,7 +379,7 @@ export default function TryonPage() {
                   <button
                     key={it.outputId}
                     type="button"
-                    onClick={() => pickPerson(it)}
+                    onClick={() => pickFromGallery(it)}
                     className="block rounded overflow-hidden border border-bg-border hover:border-accent"
                   >
                     <img src={it.url} alt={it.filename} className="w-full aspect-square object-cover" />

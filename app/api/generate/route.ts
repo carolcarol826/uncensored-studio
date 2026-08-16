@@ -8,6 +8,7 @@ import {
   buildControlNetWorkflow,
   buildInpaintWorkflow,
   buildTryonWorkflow,
+  isSelfContained,
   type ControlType,
 } from '@/lib/workflows';
 import { submit, provider as inferenceProvider, type InlineImage } from '@/lib/inference';
@@ -25,7 +26,8 @@ export const dynamic = 'force-dynamic';
 interface Body {
   mode: GenerationMode;
   workflowId: string;
-  checkpoint: string;
+  /** Optional for self-contained graphs, which name their own weights. */
+  checkpoint?: string;
   positive: string;
   negative?: string;
   width?: number;
@@ -81,12 +83,17 @@ export async function POST(req: NextRequest) {
   if (!CREDIT_COSTS[body.mode]) {
     return NextResponse.json({ error: `Unknown mode: ${body.mode}` }, { status: 400 });
   }
-  if (!body.workflowId || !body.checkpoint || !body.positive?.trim()) {
+  // A self-contained graph carries its own weights, so demanding a checkpoint
+  // would reject a request that has everything it needs.
+  const needsCheckpoint = !isSelfContained(body.workflowId);
+  if (!body.workflowId || (needsCheckpoint && !body.checkpoint) || !body.positive?.trim()) {
     return NextResponse.json(
       { error: 'workflowId, checkpoint, positive 必填' },
       { status: 400 }
     );
   }
+
+  const checkpoint = body.checkpoint ?? '';
 
   const baseCost = CREDIT_COSTS[body.mode];
   // Surcharge: large images / many frames cost more
@@ -121,7 +128,7 @@ export async function POST(req: NextRequest) {
       case 'text2img':
         workflow = await buildT2IWorkflow({
           workflowId: body.workflowId,
-          checkpoint: body.checkpoint,
+          checkpoint,
           positive: body.positive,
           negative: body.negative ?? '',
           width: body.width ?? 1024,
@@ -138,7 +145,7 @@ export async function POST(req: NextRequest) {
         }
         workflow = await buildI2IWorkflow({
           workflowId: body.workflowId,
-          checkpoint: body.checkpoint,
+          checkpoint,
           positive: body.positive,
           negative: body.negative ?? '',
           width: body.width ?? 1024,
@@ -157,7 +164,7 @@ export async function POST(req: NextRequest) {
         }
         workflow = await buildCharacterWorkflow({
           workflowId: body.workflowId,
-          checkpoint: body.checkpoint,
+          checkpoint,
           positive: body.positive,
           negative: body.negative ?? '',
           inputImage: body.inputImage,
@@ -173,7 +180,7 @@ export async function POST(req: NextRequest) {
       case 'text2video':
         workflow = await buildVideoWorkflow({
           workflowId: body.workflowId,
-          checkpoint: body.checkpoint,
+          checkpoint,
           positive: body.positive,
           negative: body.negative ?? '',
           inputImage: body.inputImage,
@@ -194,7 +201,7 @@ export async function POST(req: NextRequest) {
         }
         workflow = await buildControlNetWorkflow({
           workflowId: body.workflowId,
-          checkpoint: body.checkpoint,
+          checkpoint,
           positive: body.positive,
           negative: body.negative ?? '',
           inputImage: body.inputImage,
@@ -215,12 +222,15 @@ export async function POST(req: NextRequest) {
         if (!body.garmentImage) {
           return NextResponse.json({ error: '请上传服装图' }, { status: 400 });
         }
-        if (!body.maskImage) {
+        // Only the SDXL route repaints inside a painted region. Qwen-Image-Edit
+        // works from the instruction alone, so a mask would be a step the user
+        // cannot skip for no benefit.
+        if (needsCheckpoint && !body.maskImage) {
           return NextResponse.json({ error: '请涂抹要换衣服的区域' }, { status: 400 });
         }
         workflow = await buildTryonWorkflow({
           workflowId: body.workflowId,
-          checkpoint: body.checkpoint,
+          checkpoint,
           positive: body.positive,
           negative: body.negative ?? '',
           inputImage: body.inputImage,
@@ -228,8 +238,8 @@ export async function POST(req: NextRequest) {
           garmentImage: body.garmentImage,
           width: body.width ?? 1024,
           height: body.height ?? 1024,
-          steps: body.steps ?? 30,
-          cfg: body.cfg ?? 7,
+          steps: body.steps,
+          cfg: body.cfg,
           seed,
           garmentWeight: body.garmentWeight,
           growMaskBy: body.growMaskBy,
@@ -244,7 +254,7 @@ export async function POST(req: NextRequest) {
         }
         workflow = await buildInpaintWorkflow({
           workflowId: body.workflowId,
-          checkpoint: body.checkpoint,
+          checkpoint,
           positive: body.positive,
           negative: body.negative ?? '',
           inputImage: body.inputImage,
@@ -341,7 +351,9 @@ export async function POST(req: NextRequest) {
       userId,
       kind: KIND_MAP[body.mode],
       workflowId: body.workflowId,
-      checkpoint: body.checkpoint,
+      // Self-contained graphs have no checkpoint to record; name the workflow
+      // instead so history still says what produced the image.
+      checkpoint: checkpoint || body.workflowId,
       prompt: body.positive,
       negativePrompt: body.negative,
       width: body.width ?? 1024,

@@ -16,6 +16,12 @@ export interface WorkflowMeta {
    * guaranteed failure rather than a slower option.
    */
   localOnly?: boolean;
+  /**
+   * The graph names its own weights, so there is no checkpoint to pick and the
+   * sampler settings are fixed by the model (a Lightning LoRA that only works
+   * at its trained step count, for instance).
+   */
+  selfContained?: boolean;
 }
 
 export const WORKFLOWS: WorkflowMeta[] = [
@@ -112,6 +118,14 @@ export const WORKFLOWS: WorkflowMeta[] = [
     requiredCustomNodes: ['ComfyUI-Advanced-ControlNet', 'ComfyUI_controlnet_aux'],
   },
   {
+    id: 'qwen-edit-tryon',
+    name: 'AI 换装 (Qwen-Image-Edit)',
+    category: 'tryon',
+    description: '上传人物图 + 服装图 → 用一句话说明要换什么，人脸与场景保持不变',
+    vramHint: '24 GB VRAM · fp8 · 4 步',
+    selfContained: true,
+  },
+  {
     id: 'sdxl-tryon',
     name: 'SDXL AI 换装 (虚拟试衣)',
     category: 'tryon',
@@ -141,6 +155,11 @@ export function listWorkflows(category?: WorkflowMeta['category']): WorkflowMeta
     : WORKFLOWS;
   if (!category) return usable;
   return usable.filter((w) => w.category === category);
+}
+
+/** True when the graph names its own weights and takes no checkpoint. */
+export function isSelfContained(workflowId: string): boolean {
+  return WORKFLOWS.some((w) => w.id === workflowId && w.selfContained);
 }
 
 export async function loadWorkflow(id: string): Promise<Record<string, unknown>> {
@@ -410,7 +429,8 @@ export async function buildInpaintWorkflow(params: InpaintParams): Promise<Recor
 
 export interface TryonParams {
   workflowId: string;
-  checkpoint: string;
+  /** Absent on self-contained graphs, which name their own weights. */
+  checkpoint?: string;
   positive: string;
   negative: string;
   /** Working frame, derived from the person image so its shape is preserved. */
@@ -418,12 +438,16 @@ export interface TryonParams {
   height: number;
   /** The person being dressed. */
   inputImage: string;
-  /** White-on-black PNG marking the clothing area to replace. */
-  maskImage: string;
+  /**
+   * White-on-black PNG marking the clothing area to replace. Only the SDXL
+   * route needs one; Qwen-Image-Edit decides the region from the instruction.
+   */
+  maskImage?: string;
   /** The garment to put on them. */
   garmentImage: string;
-  steps: number;
-  cfg: number;
+  /** Left unset on graphs whose sampler settings are fixed by a Lightning LoRA. */
+  steps?: number;
+  cfg?: number;
   seed: number;
   /** How strongly the garment reference steers the repaint (IP-Adapter weight). */
   garmentWeight?: number;
@@ -433,11 +457,14 @@ export interface TryonParams {
 export async function buildTryonWorkflow(params: TryonParams): Promise<Record<string, unknown>> {
   const wf = await loadWorkflow(params.workflowId);
   const json = JSON.stringify(wf)
-    .replace(/__CKPT__/g, params.checkpoint)
+    .replace(/__CKPT__/g, params.checkpoint ?? '')
     .replace(/__POSITIVE__/g, escapeForJson(params.positive))
     .replace(/__NEGATIVE__/g, escapeForJson(params.negative))
+    // The SDXL graph calls the person __INPUT_IMAGE__, the Qwen one
+    // __PERSON_IMAGE__; each ignores the other's name.
     .replace(/__INPUT_IMAGE__/g, escapeForJson(params.inputImage))
-    .replace(/__MASK_IMAGE__/g, escapeForJson(params.maskImage))
+    .replace(/__PERSON_IMAGE__/g, escapeForJson(params.inputImage))
+    .replace(/__MASK_IMAGE__/g, escapeForJson(params.maskImage ?? ''))
     .replace(/__GARMENT_IMAGE__/g, escapeForJson(params.garmentImage));
 
   const result = JSON.parse(json) as Record<string, any>;
@@ -447,8 +474,10 @@ export async function buildTryonWorkflow(params: TryonParams): Promise<Record<st
     const n = node as { class_type?: string; inputs?: Record<string, any> };
     if (!n.inputs) continue;
     if (n.class_type === 'KSampler') {
-      n.inputs.steps = params.steps;
-      n.inputs.cfg = params.cfg;
+      // Qwen's Lightning LoRA only converges at the step count and CFG the
+      // graph ships with, so those stay untouched unless the caller sets them.
+      if (params.steps != null) n.inputs.steps = params.steps;
+      if (params.cfg != null) n.inputs.cfg = params.cfg;
       n.inputs.seed = params.seed;
     }
     if (n.class_type === 'IPAdapterAdvanced' && params.garmentWeight != null) {

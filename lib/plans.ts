@@ -18,7 +18,7 @@ export const CREDIT_COSTS = {
   character: 3,
   controlnet: 2,  // ~2x compute: preprocessor + controlnet forward pass
   inpaint: 1,     // same compute as img2img — repaints only masked region
-  tryon: 2,       // inpaint plus an IP-Adapter pass over the garment reference
+  tryon: 2,       // Qwen-Image-Edit: 4 sampling steps, but ~30GB of weights to load
 } as const;
 
 export type GenerationMode = keyof typeof CREDIT_COSTS;
