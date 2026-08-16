@@ -376,8 +376,11 @@ const zh: Dict = {
     step3Hint: '默认指令已经要求「只换衣服、保持人脸与场景」。想强调穿法或位置时再补一句，例：fitted low on the hips。',
     promptLabel: '补充说明（英文效果最好）',
     promptPlaceholder: '例：fitted low on the hips / leave the jacket open',
+    // Asking for "the garment from image 2" is not enough: the model invents a
+    // plausible black outfit instead of copying the one it was shown. Naming
+    // the parts it must reproduce is what makes it follow the reference.
     defaultPrompt:
-      'Put the garment from image 2 onto the person in image 1. Keep their face, hair, body, pose and the background exactly the same. Only change the clothing, fitted naturally to the body.',
+      'Dress the person in image 1 in the exact garment shown in image 2. Copy that garment precisely - its shape, straps, colour, material and metal hardware - and do not invent a different outfit. Keep their face, hair, body, pose and the room exactly the same, and remove whatever they were wearing before.',
     needPerson: '请先选择人物图',
     needGarment: '请上传服装图',
     submitBtn: '开始换装（2 积分）',
@@ -847,8 +850,11 @@ const en: Dict = {
     step3Hint: 'The default instruction already asks for the clothing only, with the face and scene kept. Add a line when you want the fit or placement a particular way.',
     promptLabel: 'Extra notes',
     promptPlaceholder: 'e.g. fitted low on the hips / leave the jacket open',
+    // Asking for "the garment from image 2" is not enough: the model invents a
+    // plausible black outfit instead of copying the one it was shown. Naming
+    // the parts it must reproduce is what makes it follow the reference.
     defaultPrompt:
-      'Put the garment from image 2 onto the person in image 1. Keep their face, hair, body, pose and the background exactly the same. Only change the clothing, fitted naturally to the body.',
+      'Dress the person in image 1 in the exact garment shown in image 2. Copy that garment precisely - its shape, straps, colour, material and metal hardware - and do not invent a different outfit. Keep their face, hair, body, pose and the room exactly the same, and remove whatever they were wearing before.',
     needPerson: 'Choose a person image first',
     needGarment: 'Upload a garment image',
     submitBtn: 'Try it on (2 credits)',
