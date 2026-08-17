@@ -1,5 +1,5 @@
 {
-  "_comment": "Instruction-driven image editing on Qwen-Image-Edit 2511 — the same graph as qwen-edit-tryon with a single reference image. Chosen over SDXL img2img because SDXL reads prompts through CLIP, which understands no Chinese, and because sampling from a person's own latent is what keeps their face. Qwen2.5-VL reads the instruction, so the user can write in Chinese. Steps and CFG come from the Lightning LoRA and must not be overridden. Placeholders: __POSITIVE__, __INPUT_IMAGE__.",
+  "_comment": "NOTE on the second LoRA: the base model is trained on safe data, so any instruction that forces it to repaint an explicit region — moving the hands away from the groin, for instance — came back with the anatomy erased or reduced to a stub, which broke the rule that anything the prompt did not mention must survive the edit. MCNL supplies the prior the base model lacks. Instruction-driven image editing on Qwen-Image-Edit 2511 — the same graph as qwen-edit-tryon with a single reference image. Chosen over SDXL img2img because SDXL reads prompts through CLIP, which understands no Chinese, and because sampling from a person's own latent is what keeps their face. Qwen2.5-VL reads the instruction, so the user can write in Chinese. Steps and CFG come from the Lightning LoRA and must not be overridden. Placeholders: __POSITIVE__, __INPUT_IMAGE__.",
   "1": {
     "inputs": { "unet_name": "qwen_image_edit_2511_fp8mixed.safetensors", "weight_dtype": "default" },
     "class_type": "UNETLoader",
@@ -23,6 +23,15 @@
     },
     "class_type": "LoraLoaderModelOnly",
     "_meta": { "title": "Lightning 4-step LoRA" }
+  },
+  "41": {
+    "inputs": {
+      "model": ["4", 0],
+      "lora_name": "qwen-edit-nsfw-mcnl-v1.safetensors",
+      "strength_model": 1.0
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": { "title": "NSFW anatomy LoRA" }
   },
   "5": {
     "inputs": { "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default" },
@@ -77,7 +86,7 @@
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1,
-      "model": ["4", 0],
+      "model": ["41", 0],
       "positive": ["22", 0],
       "negative": ["23", 0],
       "latent_image": ["30", 0]

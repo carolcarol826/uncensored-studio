@@ -24,6 +24,15 @@
     "class_type": "LoraLoaderModelOnly",
     "_meta": { "title": "Lightning 4-step LoRA" }
   },
+  "41": {
+    "inputs": {
+      "model": ["4", 0],
+      "lora_name": "qwen-edit-nsfw-mcnl-v1.safetensors",
+      "strength_model": 1.0
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": { "title": "NSFW anatomy LoRA" }
+  },
   "5": {
     "inputs": { "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default" },
     "class_type": "CLIPLoader",
@@ -93,7 +102,7 @@
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1,
-      "model": ["4", 0],
+      "model": ["41", 0],
       "positive": ["22", 0],
       "negative": ["23", 0],
       "latent_image": ["30", 0]
