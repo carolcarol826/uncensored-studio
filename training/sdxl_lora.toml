@@ -1,0 +1,49 @@
+# kohya sd-scripts config for an SDXL LoRA on the checkpoint we serve.
+#
+# The base model must be the same lustify build inference uses. A LoRA trained
+# against a different SDXL will apply without erroring and quietly produce
+# mush, which is the kind of failure that costs a training run to discover.
+
+[model]
+pretrained_model_name_or_path = "/runpod-volume/models/checkpoints/lustify-v2.0.safetensors"
+v2 = false
+sdxl = true
+
+[dataset]
+train_data_dir = "/workspace/dataset"
+resolution = "1024,1024"
+enable_bucket = true
+min_bucket_reso = 768
+max_bucket_reso = 1536
+bucket_reso_steps = 64
+caption_extension = ".txt"
+# Half the batch sees mirrored images. Free variety for a symmetric subject.
+flip_aug = true
+shuffle_caption = true
+keep_tokens = 1                 # the trigger stays at position 0
+
+[training]
+output_dir = "/runpod-volume/models/loras"
+output_name = "mhprop-v1"
+save_model_as = "safetensors"
+# 32/16 is roomy for a shape concept. Going higher mostly buys overfitting.
+network_module = "networks.lora"
+network_dim = 32
+network_alpha = 16
+train_batch_size = 2
+max_train_epochs = 10
+learning_rate = 1e-4
+unet_lr = 1e-4
+text_encoder_lr = 5e-5
+lr_scheduler = "cosine_with_restarts"
+lr_warmup_steps = 50
+optimizer_type = "AdamW8bit"
+mixed_precision = "bf16"
+save_precision = "bf16"
+gradient_checkpointing = true
+cache_latents = true
+xformers = true
+seed = 42
+# An epoch on disk every other pass: if the last one is overcooked you can fall
+# back to an earlier checkpoint instead of paying to train again.
+save_every_n_epochs = 2

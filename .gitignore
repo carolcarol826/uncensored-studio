@@ -59,3 +59,5 @@ next-env.d.ts
 
 # 测试产物+认证日志，不入库
 data/
+training/dataset/
+training/*.safetensors
