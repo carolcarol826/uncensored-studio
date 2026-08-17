@@ -95,6 +95,16 @@ export async function POST(req: NextRequest) {
 
   const checkpoint = body.checkpoint ?? '';
 
+  // Appended to every instruction the Qwen edit graphs receive. "nsfw" is the
+  // NSFW adapter's trigger word — without it the adapter stays dormant and an
+  // edit that has to repaint an explicit region returns a stub. The rest tells
+  // the model what the feature promises: anything the user did not ask about
+  // comes back untouched. Both were measured: with the clause the source's
+  // anatomy and room survived edits that had erased them before.
+  const EDIT_SUFFIX =
+    ' nsfw. Keep his face, body, anatomy, the room and everything the instruction ' +
+    'does not mention exactly as in the source image.';
+
   const baseCost = CREDIT_COSTS[body.mode];
   // Surcharge: large images / many frames cost more
   const pixels = (body.width ?? 1024) * (body.height ?? 1024);
@@ -146,7 +156,7 @@ export async function POST(req: NextRequest) {
         workflow = await buildI2IWorkflow({
           workflowId: body.workflowId,
           checkpoint,
-          positive: body.positive,
+          positive: needsCheckpoint ? body.positive : body.positive + EDIT_SUFFIX,
           negative: body.negative ?? '',
           width: body.width ?? 1024,
           height: body.height ?? 1024,

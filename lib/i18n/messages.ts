@@ -299,7 +299,7 @@ const zh: Dict = {
   gen: {
     page: {
       text2imgTitle: '文生图', text2imgDesc: '输入描述生成图片。⚠️ 本页请用英文描述 —— 底层模型只认英文，中文会被忽略。想用中文请去「图生图」',
-      img2imgTitle: '图生图', img2imgDesc: '上传一张图，用一句话说明要改成什么样（支持中文）。人物长相和场景会保持不变',
+      img2imgTitle: '图生图', img2imgDesc: '上传一张图，说明要改什么（支持中文）。没说到的地方——长相、身材、场景——都会保持原样。💡 写明身体部位效果最好，例：「在他的两个乳头上各夹一个银色乳夹」',
       img2videoTitle: '图生视频', img2videoDesc: '上传图，让它根据 prompt 动起来（Wan 2.2 I2V）',
       text2videoTitle: '文生视频', text2videoDesc: '纯文本到视频（Wan 2.2 TI2V-5B）',
       characterTitle: '角色一致性', characterDesc: '上传一张人脸，生成同一角色的多种场景（PuLID）',
@@ -773,7 +773,7 @@ const en: Dict = {
   gen: {
     page: {
       text2imgTitle: 'Text → Image', text2imgDesc: 'Type a prompt, get an image. Write it in English — the model behind this page reads no other language',
-      img2imgTitle: 'Image → Image', img2imgDesc: 'Upload a picture and say what to change in one line. The face and the scene stay as they are',
+      img2imgTitle: 'Image → Image', img2imgDesc: 'Upload a picture and say what to change. Anything you leave out — the face, the body, the room — comes back as it was. 💡 Name the body part: "attach a silver clamp to each of his nipples"',
       img2videoTitle: 'Image → Video', img2videoDesc: 'Animate your image with a prompt (Wan 2.2 I2V)',
       text2videoTitle: 'Text → Video', text2videoDesc: 'Pure text → video (Wan 2.2 TI2V-5B)',
       characterTitle: 'Character', characterDesc: 'Upload one face, generate scenes (PuLID)',
