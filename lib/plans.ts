@@ -10,15 +10,28 @@
 //
 // Target margin: ~80%+ at scale (credits sold at ~$0.01-0.05 each).
 
+// Priced off measured GPU seconds, not guessed. A credit is worth roughly
+// $0.015 (top-up packs run $0.0125–$0.020, subscriptions $0.0125–$0.0198), and
+// serverless 4090 time bills at about $0.00031/s. Aim for compute at a quarter
+// to a third of revenue, leaving room for Paddle fees, R2, Vercel and the
+// network volume's monthly charge.
+//
+// Measured this round, wall time as RunPod bills it:
+//   SDXL Lightning t2i   2–13s   → ~$0.003
+//   Qwen edit (i2i/tryon) 13–120s → ~$0.019 blended, weights are ~30GB
+//   Wan 2.2 A14B video   ~300s   → ~$0.093
 export const CREDIT_COSTS = {
   text2img: 1,
-  img2img: 1,
-  img2video: 10,
+  // Was 1, from when this ran SDXL. It now runs Qwen-Image-Edit, which costs
+  // us about six times as much per job — at 1 credit the feature lost money on
+  // every call.
+  img2img: 4,
+  img2video: 10,  // ×2 again for the A14B graph, see heavyModelMul
   text2video: 12,
   character: 3,
   controlnet: 2,  // ~2x compute: preprocessor + controlnet forward pass
-  inpaint: 1,     // same compute as img2img — repaints only masked region
-  tryon: 2,       // Qwen-Image-Edit: 4 sampling steps, but ~30GB of weights to load
+  inpaint: 1,     // still SDXL, and only the masked region is repainted
+  tryon: 4,       // same Qwen graph as img2img, plus a second reference image
 } as const;
 
 export type GenerationMode = keyof typeof CREDIT_COSTS;

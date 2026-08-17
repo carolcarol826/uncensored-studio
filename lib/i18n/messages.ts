@@ -149,7 +149,7 @@ const zh: Dict = {
     startCreating: '开始创作',
     task: {
       t2i: '文生图', t2iDesc: '从文字生成图片 · 1 积分/张',
-      i2i: '图生图', i2iDesc: '基于参考图重绘 · 1 积分/张',
+      i2i: '图生图', i2iDesc: '一句话改图，人物和场景不变 · 4 积分/张',
       char: '角色一致性', charDesc: '上传一张脸生成多场景 · 3 积分/张',
       i2v: '图生视频', i2vDesc: 'Wan 2.2 I2V · 10 积分/段',
       t2v: '文生视频', t2vDesc: 'Wan 2.2 TI2V · 12 积分/段',
@@ -383,7 +383,7 @@ const zh: Dict = {
       'Dress the person in image 1 in the exact garment shown in image 2. Copy that garment precisely - its shape, straps, colour, material and metal hardware - and do not invent a different outfit. Keep their face, hair, body, pose and the room exactly the same, and remove whatever they were wearing before.',
     needPerson: '请先选择人物图',
     needGarment: '请上传服装图',
-    submitBtn: '开始换装（2 积分）',
+    submitBtn: '开始换装（4 积分）',
   },
   inpaint: {
     refImage: '原图',
@@ -623,7 +623,7 @@ const en: Dict = {
     startCreating: 'Start creating',
     task: {
       t2i: 'Text → Image', t2iDesc: 'From a prompt · 1 credit / image',
-      i2i: 'Image → Image', i2iDesc: 'Repaint from a reference · 1 credit / image',
+      i2i: 'Image → Image', i2iDesc: 'Change a picture in one line, face and scene intact · 4 credits / image',
       char: 'Character', charDesc: 'Upload a face, generate scenes · 3 credits / image',
       i2v: 'Image → Video', i2vDesc: 'Wan 2.2 I2V · 10 credits / clip',
       t2v: 'Text → Video', t2vDesc: 'Wan 2.2 TI2V · 12 credits / clip',
@@ -857,7 +857,7 @@ const en: Dict = {
       'Dress the person in image 1 in the exact garment shown in image 2. Copy that garment precisely - its shape, straps, colour, material and metal hardware - and do not invent a different outfit. Keep their face, hair, body, pose and the room exactly the same, and remove whatever they were wearing before.',
     needPerson: 'Choose a person image first',
     needGarment: 'Upload a garment image',
-    submitBtn: 'Try it on (2 credits)',
+    submitBtn: 'Try it on (4 credits)',
   },
   inpaint: {
     refImage: 'Source image',
