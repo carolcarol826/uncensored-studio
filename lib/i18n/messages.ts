@@ -298,7 +298,7 @@ const zh: Dict = {
   },
   gen: {
     page: {
-      text2imgTitle: '文生图', text2imgDesc: '输入描述生成图片。⚠️ 本页请用英文描述 —— 底层模型只认英文，中文会被忽略。想用中文请去「图生图」',
+      text2imgTitle: '文生图', text2imgDesc: '⚠️ 本页请用英文 —— 底层模型只认英文，中文会被忽略（想用中文去「图生图」）。💡 想要全身且身体细节到位：把构图写在最前面「full body photograph, whole body and face visible in frame」，需要强调的细节用括号加权重 (large thick erect penis:1.15)，权重别超过 1.2，否则会画出多余的器官',
       img2imgTitle: '图生图', img2imgDesc: '上传一张图，说明要改什么（支持中文）。没说到的地方——长相、身材、场景——都会保持原样。💡 写明身体部位效果最好，例：「在他的两个乳头上各夹一个银色乳夹」',
       img2videoTitle: '图生视频', img2videoDesc: '上传图，让它根据 prompt 动起来（Wan 2.2 I2V）',
       text2videoTitle: '文生视频', text2videoDesc: '纯文本到视频（Wan 2.2 TI2V-5B）',
@@ -772,7 +772,7 @@ const en: Dict = {
   },
   gen: {
     page: {
-      text2imgTitle: 'Text → Image', text2imgDesc: 'Type a prompt, get an image. Write it in English — the model behind this page reads no other language',
+      text2imgTitle: 'Text → Image', text2imgDesc: 'Write the prompt in English — the model behind this page reads no other language. 💡 Lead with the framing ("full body photograph, whole body and face visible in frame") and weight the details you care about, (large thick erect penis:1.15). Keep weights under 1.2 or the model draws a spare',
       img2imgTitle: 'Image → Image', img2imgDesc: 'Upload a picture and say what to change. Anything you leave out — the face, the body, the room — comes back as it was. 💡 Name the body part: "attach a silver clamp to each of his nipples"',
       img2videoTitle: 'Image → Video', img2videoDesc: 'Animate your image with a prompt (Wan 2.2 I2V)',
       text2videoTitle: 'Text → Video', text2videoDesc: 'Pure text → video (Wan 2.2 TI2V-5B)',

@@ -104,8 +104,16 @@ export default function GeneratorForm({
   const [workflowId, setWorkflowId] = useState('');
   const [checkpoint, setCheckpoint] = useState('');
   const [positive, setPositive] = useState('');
+  // The crop and anatomy guards are not decoration. Loading a prompt with
+  // genital tokens makes SDXL pull the camera into the crotch and cut the head
+  // off, and its default for an unqualified male nude is a flaccid, poorly
+  // formed one. Naming both here fixed the framing and the anatomy in testing
+  // without the user having to know why.
   const [negative, setNegative] = useState(
-    showNegative ? 'low quality, blurry, deformed, extra fingers' : ''
+    showNegative
+      ? 'low quality, blurry, deformed, extra fingers, mutated, bad anatomy, ' +
+        'malformed genitals, fused body parts, cropped, out of frame, headless, cut off'
+      : ''
   );
   const [width, setWidth] = useState(defaultWidth);
   const [height, setHeight] = useState(defaultHeight);
