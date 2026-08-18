@@ -518,17 +518,18 @@ export async function addOutputFile(args: {
   width?: number;
   height?: number;
   sizeBytes?: number;
-}) {
+}): Promise<string> {
   if (isDbSkipped) {
     const g = mockGenerations.get(args.generationId);
+    const id = makeId('o');
     if (g) {
       g.outputs.push({
-        id: makeId('o'),
+        id,
         kind: args.kind,
         key: args.key,
       });
     }
-    return;
+    return id;
   }
   // The webhook and the browser's status poll can both finalize the same job,
   // and each stored its own row — one picture appeared in the gallery twice.
@@ -536,8 +537,8 @@ export async function addOutputFile(args: {
     where: { generationId: args.generationId, key: args.key },
     select: { id: true },
   });
-  if (existing) return;
-  await prisma.outputFile.create({
+  if (existing) return existing.id;
+  const row = await prisma.outputFile.create({
     data: {
       generationId: args.generationId,
       kind: args.kind,
@@ -546,7 +547,9 @@ export async function addOutputFile(args: {
       height: args.height,
       sizeBytes: args.sizeBytes,
     },
+    select: { id: true },
   });
+  return row.id;
 }
 
 /**

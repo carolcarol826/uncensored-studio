@@ -12,7 +12,13 @@ import { isDbSkipped, prisma } from './db';
 import { sendGenerationReadyEmail } from './notify';
 import { moderateImage, moderationEnabled } from './moderation';
 
-export type OutFile = { url: string; type: 'image' | 'video'; filename: string };
+export type OutFile = {
+  url: string;
+  type: 'image' | 'video';
+  filename: string;
+  /** Handle for reusing this file as the reference of a follow-up job. */
+  outputId?: string;
+};
 
 export interface FinalizeResult {
   status: 'queued' | 'running' | 'completed' | 'failed' | 'unknown' | 'not_found';
@@ -62,6 +68,7 @@ export async function finalizeGeneration(args: {
           url: await getPublicUrl(r.key),
           type: (r.kind === 'video' ? 'video' : 'image') as 'image' | 'video',
           filename: r.key.split('/').pop() ?? 'output',
+          outputId: r.id,
         }))
       );
       return {
@@ -102,8 +109,8 @@ export async function finalizeGeneration(args: {
           }
         }
         const { key } = await ingestFromUrl({ userId, generationId, url: o.url, filename: o.filename });
-        await addOutputFile({ generationId, kind: o.type, key });
-        outputs.push({ url: await getPublicUrl(key), type: o.type, filename: o.filename });
+        const outputId = await addOutputFile({ generationId, kind: o.type, key });
+        outputs.push({ url: await getPublicUrl(key), type: o.type, filename: o.filename, outputId });
       } catch {
         // Never fall back to returning the raw base64 data: URL.
       }
