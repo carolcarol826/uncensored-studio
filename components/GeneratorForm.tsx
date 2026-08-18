@@ -681,7 +681,10 @@ export default function GeneratorForm({
                 value={numFrames}
                 step={8}
                 min={17}
-                max={241}
+                // 161 frames at the working resolution ran past the endpoint's
+                // 25-minute ceiling and was killed — refunded to the user, but
+                // still billed to us. 81 finishes with room to spare.
+                max={81}
                 onChange={(e) => setNumFrames(Number(e.target.value))}
               />
             </div>

@@ -29,10 +29,14 @@ function videoSizeFor(aspect: number): { width: number; height: number } {
   return { width: round16(h * aspect), height: round16(h) };
 }
 
+// 10s (161 frames) is missing on purpose: at this pixel budget it ran past the
+// endpoint's 25-minute execution ceiling and was killed. The user gets their
+// credits back automatically, but the GPU time is still billed to us — so the
+// option is gone until the clip can actually finish. A 4-step Wan adapter would
+// bring it back comfortably; that is a separate piece of work.
 const DURATIONS = [
   { frames: 49, seconds: 3, credits: 20 },
   { frames: 81, seconds: 5, credits: 40 },
-  { frames: 161, seconds: 10, credits: 40 },
 ];
 
 export default function Text2VideoPage() {
@@ -50,7 +54,7 @@ export default function Text2VideoPage() {
   const [picture, setPicture] = useState<Output | null>(null);
 
   const [motion, setMotion] = useState('');
-  const [frames, setFrames] = useState(161);
+  const [frames, setFrames] = useState(81);
   const [video, setVideo] = useState<Output | null>(null);
 
   const [busy, setBusy] = useState<'' | 'image' | 'video'>('');
