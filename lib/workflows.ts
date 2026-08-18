@@ -108,6 +108,11 @@ export const WORKFLOWS: WorkflowMeta[] = [
     description: 'Wan 2.2 TI2V-5B native fp16 — 生产端 RunPod 用此工作流',
     vramHint: '24 GB VRAM',
     requiredCustomNodes: ['ComfyUI-VideoHelperSuite'],
+    // Its unet and VAE were deleted from the network volume to make room for
+    // Qwen-Image-Edit, so every job now fails validation on a missing
+    // wan2.2_vae. Hidden rather than left to take credits for a certain
+    // failure; see training/README or the video notes for the way back.
+    localOnly: true,
   },
   {
     id: 'pulid-sdxl-t2i',
