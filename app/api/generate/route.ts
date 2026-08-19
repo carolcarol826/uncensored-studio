@@ -333,6 +333,9 @@ export async function POST(req: NextRequest) {
   let jobId: string;
   try {
     const isVideo = body.mode === 'img2video' || body.mode === 'text2video';
+    // Every Qwen graph carries the same 32GB of weights, so they all belong on
+    // the worker that has them baked in rather than reading the volume.
+    const isQwen = body.workflowId.startsWith('qwen-');
     // Server-side finalization: RunPod calls this when the job completes, so a
     // generation is finalized + stored even if the user closes the browser tab.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
@@ -342,7 +345,7 @@ export async function POST(req: NextRequest) {
         ? `${appUrl}/api/webhooks/runpod?token=${encodeURIComponent(webhookToken)}`
         : undefined;
     const r = await submit(workflow!, {
-      kind: isVideo ? 'video' : 'image',
+      kind: isVideo ? 'video' : isQwen ? 'qwen' : 'image',
       webhookUrl,
       images: inlineImages,
     });

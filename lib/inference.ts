@@ -96,20 +96,28 @@ async function localStatus(jobId: string): Promise<InferenceStatus> {
 //     resp { id, status: IN_QUEUE|IN_PROGRESS|COMPLETED|FAILED|CANCELLED,
 //            output: { images: [{filename, type: "image"|"video", data: base64 }] } }
 
-// Two endpoints: image (SDXL, fast) + video (Wan 2.2, big GPU).
-// Image is the default; video is opt-in via the `kind` param.
-// JobIds are namespaced: `i:<rawid>` for image, `v:<rawid>` for video,
-// so status() can route back to the right endpoint without extra context.
-type EndpointKind = 'image' | 'video';
+// Three endpoints: image (SDXL + Chroma), video (Wan 2.2), and qwen
+// (Qwen-Image-Edit). Qwen is separate because its 32GB of weights plus the
+// image worker's 37GB is more than a build runner can put in one image — and
+// keeping them on the network volume instead was the largest identified reason
+// serverless cost about seven times what execution time predicted.
+//
+// JobIds are namespaced — `i:` image, `v:` video, `q:` qwen — so status() can
+// route back to the right endpoint without carrying extra context.
+type EndpointKind = 'image' | 'video' | 'qwen';
 function endpointFor(kind: EndpointKind): string {
+  // Each falls back to the image endpoint, so a missing env var degrades to the
+  // previous behaviour rather than breaking the site.
   if (kind === 'video') {
-    return (
-      process.env.RUNPOD_ENDPOINT_ID_VIDEO ||
-      required('RUNPOD_ENDPOINT_ID') // fallback if video endpoint not yet created
-    );
+    return process.env.RUNPOD_ENDPOINT_ID_VIDEO || required('RUNPOD_ENDPOINT_ID');
+  }
+  if (kind === 'qwen') {
+    return process.env.RUNPOD_ENDPOINT_ID_QWEN || required('RUNPOD_ENDPOINT_ID');
   }
   return required('RUNPOD_ENDPOINT_ID');
 }
+
+const PREFIX: Record<EndpointKind, string> = { image: 'i', video: 'v', qwen: 'q' };
 
 async function runpodSubmit(
   workflow: Record<string, unknown>,
@@ -140,7 +148,7 @@ async function runpodSubmit(
   }
   const data = (await res.json()) as { id: string };
   // Prefix so status() can route to the right endpoint
-  return { jobId: `${kind === 'video' ? 'v' : 'i'}:${data.id}` };
+  return { jobId: `${PREFIX[kind]}:${data.id}` };
 }
 
 async function runpodStatus(jobId: string): Promise<InferenceStatus> {
@@ -148,6 +156,7 @@ async function runpodStatus(jobId: string): Promise<InferenceStatus> {
   let kind: EndpointKind = 'image';
   let rawId = jobId;
   if (jobId.startsWith('v:')) { kind = 'video'; rawId = jobId.slice(2); }
+  else if (jobId.startsWith('q:')) { kind = 'qwen'; rawId = jobId.slice(2); }
   else if (jobId.startsWith('i:')) { kind = 'image'; rawId = jobId.slice(2); }
   const endpoint = endpointFor(kind);
   const key = required('RUNPOD_API_KEY');
