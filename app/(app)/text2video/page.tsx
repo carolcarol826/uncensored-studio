@@ -50,6 +50,7 @@ export default function Text2VideoPage() {
   const [negative, setNegative] = useState(
     'low quality, blurry, deformed, extra fingers, mutated, bad anatomy, ' +
     'malformed genitals, elongated penis, disproportionate anatomy, missing testicles, ' +
+    'flaccid penis, soft penis, hanging down, ' +
     'fused body parts, cropped, out of frame, headless, cut off'
   );
   const [picture, setPicture] = useState<Output | null>(null);
