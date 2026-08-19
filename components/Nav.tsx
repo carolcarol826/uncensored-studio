@@ -15,6 +15,7 @@ const PRIMARY = [
   { href: '/text2img', fallback: '文生图', icon: '✦' },
   { href: '/img2img', fallback: '图生图', icon: '✧' },
   { href: '/tryon', fallback: 'AI 换装', icon: '⛊' },
+  { href: '/faceswap', fallback: 'AI 换脸', icon: '☺' },
   { href: '/inpaint', fallback: '局部重绘', icon: '◈' },
   { href: '/controlnet', fallback: '姿势控制', icon: '◢' },
   { href: '/img2video', fallback: '图生视频', icon: '▶' },

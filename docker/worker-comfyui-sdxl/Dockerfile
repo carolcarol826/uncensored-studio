@@ -79,5 +79,29 @@ RUN mkdir -p /comfyui/models/checkpoints /comfyui/models/loras \
       https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors && \
     du -sh /comfyui/models/*
 
+# Chroma1-HD, plus the T5 encoder and VAE it needs.
+#
+# Baked rather than parked on the network volume because five attempts to pull
+# it there cost hours and real money without finishing: HuggingFace to that
+# region ran at 2.5 MB/s and stalled repeatedly. A GitHub runner fetches the
+# same files in minutes, and a baked layer is cached on the RunPod host, so cold
+# starts get faster rather than slower.
+#
+# Why this model at all: SDXL has no dependable prior for explicit male anatomy
+# — it stretched a penis to the floor and omitted testicles, and no prompt fixed
+# it. Chroma was retrained from FLUX.1-schnell with those concepts restored, and
+# is Apache 2.0.
+RUN mkdir -p /comfyui/models/diffusion_models /comfyui/models/text_encoders && \
+    wget -q --show-progress --progress=dot:giga \
+      -O /comfyui/models/diffusion_models/Chroma1-HD-fp8mixed.safetensors \
+      https://huggingface.co/Comfy-Org/Chroma1-HD_repackaged/resolve/main/split_files/diffusion_models/Chroma1-HD-fp8mixed.safetensors && \
+    wget -q --show-progress --progress=dot:giga \
+      -O /comfyui/models/text_encoders/t5xxl_fp8_e4m3fn_scaled.safetensors \
+      https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn_scaled.safetensors && \
+    wget -q --show-progress --progress=dot:giga \
+      -O /comfyui/models/vae/ae.safetensors \
+      https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors && \
+    du -sh /comfyui/models/*
+
 RUN ls -la /comfyui/custom_nodes/ && \
     echo "SDXL + ControlNet + PuLID + IPAdapter worker ready (weights baked)"

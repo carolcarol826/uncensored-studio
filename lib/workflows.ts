@@ -6,7 +6,7 @@ const WORKFLOW_DIR = path.join(process.cwd(), 'lib', 'workflows');
 export interface WorkflowMeta {
   id: string;
   name: string;
-  category: 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet' | 'inpaint' | 'tryon';
+  category: 'text2img' | 'img2img' | 'img2video' | 'text2video' | 'character' | 'controlnet' | 'inpaint' | 'tryon' | 'faceswap';
   description: string;
   vramHint: string;
   requiredCustomNodes?: string[];
@@ -145,6 +145,14 @@ export const WORKFLOWS: WorkflowMeta[] = [
     name: 'AI 换装 (Qwen-Image-Edit)',
     category: 'tryon',
     description: '上传人物图 + 服装图 → 用一句话说明要换什么，人脸与场景保持不变',
+    vramHint: '24 GB VRAM · fp8 · 4 步',
+    selfContained: true,
+  },
+  {
+    id: 'qwen-edit-faceswap',
+    name: 'AI 换脸 (Qwen-Image-Edit)',
+    category: 'faceswap',
+    description: '选一张作品 + 选一张脸 → 换上这张脸，身体、姿势、场景全部不变',
     vramHint: '24 GB VRAM · fp8 · 4 步',
     selfContained: true,
   },

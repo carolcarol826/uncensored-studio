@@ -20,6 +20,8 @@ interface GalleryItem {
   generationId?: string;
   /** Opaque handle for reusing this output as a reference image. DB path only. */
   outputId?: string;
+  /** 'UPLOAD' for a file the user brought in; anything else was generated here. */
+  sourceKind?: string;
 }
 
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
@@ -51,6 +53,7 @@ export async function GET() {
             seed: Number(g.seed),
             generationId: g.id,
             outputId: o.id,
+            sourceKind: g.kind,
           });
         }
       }
