@@ -91,16 +91,24 @@ RUN mkdir -p /comfyui/models/checkpoints /comfyui/models/loras \
 # — it stretched a penis to the floor and omitted testicles, and no prompt fixed
 # it. Chroma was retrained from FLUX.1-schnell with those concepts restored, and
 # is Apache 2.0.
-RUN mkdir -p /comfyui/models/diffusion_models /comfyui/models/text_encoders && \
+# One RUN per file. The first attempt fetched all three in a single layer, and
+# when the last URL turned out to be gated the failure threw away the 14GB that
+# had already downloaded. Separate layers are cached separately.
+RUN mkdir -p /comfyui/models/diffusion_models && \
     wget -q --show-progress --progress=dot:giga \
       -O /comfyui/models/diffusion_models/Chroma1-HD-fp8mixed.safetensors \
-      https://huggingface.co/Comfy-Org/Chroma1-HD_repackaged/resolve/main/split_files/diffusion_models/Chroma1-HD-fp8mixed.safetensors && \
+      https://huggingface.co/Comfy-Org/Chroma1-HD_repackaged/resolve/main/split_files/diffusion_models/Chroma1-HD-fp8mixed.safetensors
+
+RUN mkdir -p /comfyui/models/text_encoders && \
     wget -q --show-progress --progress=dot:giga \
       -O /comfyui/models/text_encoders/t5xxl_fp8_e4m3fn_scaled.safetensors \
-      https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn_scaled.safetensors && \
-    wget -q --show-progress --progress=dot:giga \
+      https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn_scaled.safetensors
+
+# The same 335,304,388-byte FLUX VAE, from Comfy-Org rather than
+# black-forest-labs — the latter is gated and wget got an auth failure.
+RUN wget -q --show-progress --progress=dot:giga \
       -O /comfyui/models/vae/ae.safetensors \
-      https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors && \
+      https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors && \
     du -sh /comfyui/models/*
 
 RUN ls -la /comfyui/custom_nodes/ && \
