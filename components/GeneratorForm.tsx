@@ -149,6 +149,10 @@ export default function GeneratorForm({
     queueInfo?: string;
   } | null>(null);
   const [error, setError] = useState<string>('');
+  // Giving up on polling is not a failure: the job runs on and lands in the
+  // gallery by itself. Showing it in the red error card told users something
+  // had gone wrong and invited them to spend the credits a second time.
+  const [notice, setNotice] = useState<string>('');
 
   useEffect(() => {
     (async () => {
@@ -266,6 +270,7 @@ export default function GeneratorForm({
 
   const submit = async () => {
     setError('');
+    setNotice('');
     setProgress(null);
 
     if (workflows.length === 0) {
@@ -397,7 +402,7 @@ export default function GeneratorForm({
     // We stopped polling, but the job itself hasn't been cancelled — RunPod's
     // webhook still finalizes it, so point the user at the gallery instead of
     // implying the work (or the credits) was lost.
-    setError(`${t('gen.genTimeout')}\n${t('gen.stillRunningHint')}`);
+    setNotice(t('gen.stillRunningHint'));
   };
 
   return (
@@ -739,6 +744,12 @@ export default function GeneratorForm({
         <div className="card border-danger/30 bg-danger/5">
           <div className="text-sm text-danger font-medium">{t('gen.error')}</div>
           <div className="text-sm text-fg-muted mt-1 font-mono whitespace-pre-wrap">{error}</div>
+        </div>
+      )}
+
+      {notice && (
+        <div className="card border-accent/30 bg-accent/5">
+          <div className="text-sm text-fg-muted whitespace-pre-wrap">{notice}</div>
         </div>
       )}
 
