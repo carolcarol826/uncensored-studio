@@ -208,7 +208,7 @@ export default function TryonPage() {
     const start = Date.now();
     const qs = new URLSearchParams({ jobId });
     if (generationId) qs.set('generationId', generationId);
-    while (Date.now() - start < 8 * 60_000) {
+    while (Date.now() - start < 12 * 60_000) {
       try {
         const r = await fetch(`/api/status?${qs.toString()}`);
         const d = await r.json();

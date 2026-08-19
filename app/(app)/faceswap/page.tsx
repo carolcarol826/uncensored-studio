@@ -123,7 +123,7 @@ export default function FaceSwapPage() {
 
       const qs = new URLSearchParams({ jobId: data.jobId, generationId: data.generationId });
       const start = Date.now();
-      while (Date.now() - start < 10 * 60_000) {
+      while (Date.now() - start < 12 * 60_000) {
         const d = await fetch(`/api/status?${qs}`).then((r) => r.json()).catch(() => null);
         if (d) {
           setStatus(d.status ?? '');
