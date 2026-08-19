@@ -397,7 +397,7 @@ const zh: Dict = {
     noteLabel: '补充说明（可选，英文效果最好）',
     notePlaceholder: '例：keep his beard / make the expression softer',
     instruction:
-      'Replace the face of the person in image 1 with the face from image 2. Keep the body, pose, clothing, hair length, lighting and background of image 1 exactly as they are, and fit the new face to the original head angle and lighting so it looks natural. nsfw.',
+      'Take the face and head of the person in image 2 and put it on the body in image 1, so the result is recognisably the same individual as image 2 - same facial features, same bone structure, same eyes, nose and mouth, same hair colour and style. Keep image 1 unchanged in every other respect: body, pose, hands, clothing, lighting and background. Match the new head to the original head angle and lighting. nsfw.',
     needBoth: '请先选择作品和人脸',
     submit: '开始换脸（4 积分）',
     pickerNote: '仅显示本站生成的图片（上传的照片已排除）',
@@ -908,7 +908,7 @@ const en: Dict = {
     noteLabel: 'Extra notes (optional, English works best)',
     notePlaceholder: 'e.g. keep his beard / make the expression softer',
     instruction:
-      'Replace the face of the person in image 1 with the face from image 2. Keep the body, pose, clothing, hair length, lighting and background of image 1 exactly as they are, and fit the new face to the original head angle and lighting so it looks natural. nsfw.',
+      'Take the face and head of the person in image 2 and put it on the body in image 1, so the result is recognisably the same individual as image 2 - same facial features, same bone structure, same eyes, nose and mouth, same hair colour and style. Keep image 1 unchanged in every other respect: body, pose, hands, clothing, lighting and background. Match the new head to the original head angle and lighting. nsfw.',
     needBoth: 'Choose a picture and a face first',
     submit: 'Swap the face (4 credits)',
     pickerNote: 'Generated pictures only — uploads are excluded',
