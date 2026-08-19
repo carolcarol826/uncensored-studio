@@ -98,6 +98,7 @@ export default function GeneratorForm({
     return name;
   };
   const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
+  const [loadingWorkflows, setLoadingWorkflows] = useState(true);
   const [checkpoints, setCheckpoints] = useState<string[]>([]);
   const [comfyOnline, setComfyOnline] = useState<boolean>(true);
 
@@ -174,6 +175,8 @@ export default function GeneratorForm({
         }
       } catch (e) {
         setError(`${t('gen.initFailed')}: ${(e as Error).message}`);
+      } finally {
+        setLoadingWorkflows(false);
       }
     })();
   }, [mode]);
@@ -485,7 +488,11 @@ export default function GeneratorForm({
               onChange={(e) => setWorkflowId(e.target.value)}
             >
               {workflows.length === 0 ? (
-                <option>{t('gen.modeUnavailable')}</option>
+                // Until the fetch resolves this list is empty for the same reason
+                // it is empty when a mode really has no graph, and saying "not
+                // rolled out yet" for the three seconds a page takes to load told
+                // every visitor the feature did not exist.
+                <option>{loadingWorkflows ? t('gen.loading') : t('gen.modeUnavailable')}</option>
               ) : (
                 workflows.map((w) => (
                   <option key={w.id} value={w.id}>
