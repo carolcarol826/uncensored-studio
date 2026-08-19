@@ -1,11 +1,14 @@
-# kohya sd-scripts config for an SDXL LoRA on the checkpoint we serve.
+# kohya sd-scripts config for a LoRA on the model we actually serve.
 #
 # The base model must be the same lustify build inference uses. A LoRA trained
 # against a different SDXL will apply without erroring and quietly produce
 # mush, which is the kind of failure that costs a training run to discover.
 
 [model]
-pretrained_model_name_or_path = "/runpod-volume/models/checkpoints/lustify-v2.0.safetensors"
+# Chroma, not SDXL: it is the model that renders anatomy correctly unaided,
+# so it is the one the LoRA has to sit on. A LoRA trained against a different
+# base applies without erroring and quietly produces mush.
+pretrained_model_name_or_path = "/comfyui/models/diffusion_models/Chroma1-HD-fp8mixed.safetensors"
 v2 = false
 sdxl = true
 
