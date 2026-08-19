@@ -112,7 +112,14 @@ function endpointFor(kind: EndpointKind): string {
     return process.env.RUNPOD_ENDPOINT_ID_VIDEO || required('RUNPOD_ENDPOINT_ID');
   }
   if (kind === 'qwen') {
-    return process.env.RUNPOD_ENDPOINT_ID_QWEN || required('RUNPOD_ENDPOINT_ID');
+    // An endpoint id is an identifier, not a credential — the API key is the
+    // secret — so the one we run is checked in as the default. It is here
+    // rather than only in the environment because the deploy platform's CLI
+    // has no working credentials on this machine, and leaving the value unset
+    // meant every Qwen job kept reading 32GB off the network volume: about
+    // 150s of billed time per call instead of 17s. Set the env var to point
+    // somewhere else; it always wins.
+    return process.env.RUNPOD_ENDPOINT_ID_QWEN || '0lsbquiioelkcc';
   }
   return required('RUNPOD_ENDPOINT_ID');
 }
