@@ -26,10 +26,18 @@ export interface WorkflowMeta {
 
 export const WORKFLOWS: WorkflowMeta[] = [
   {
+    id: 'chroma-t2i',
+    name: '写实 · Chroma (默认)',
+    category: 'text2img',
+    description: '解剖结构最准，不需要提示词技巧。人体细节优先选这个',
+    vramHint: '12 GB VRAM · fp8 · 26 步',
+    selfContained: true,
+  },
+  {
     id: 'sdxl-lightning-t2i',
     name: 'SDXL 快速出图 (Lightning 8 步)',
     category: 'text2img',
-    description: '8 步出图，速度约 3 倍、成本约 1/4，质量接近标准模式。日常首选',
+    description: '更快更便宜，风格更锐利。人体解剖不如 Chroma 稳，需要靠提示词技巧',
     vramHint: '6-8 GB VRAM · 1024×1024',
     // Weights are baked into the worker image; nothing extra to fetch.
     localOnly: false,
@@ -203,13 +211,15 @@ export async function loadWorkflow(id: string): Promise<Record<string, unknown>>
 
 export interface T2IParams {
   workflowId: string;
-  checkpoint: string;
+  /** Absent on graphs that name their own weights. */
+  checkpoint?: string;
   positive: string;
   negative: string;
   width: number;
   height: number;
-  steps: number;
-  cfg: number;
+  /** Left unset on a self-contained graph so its own values stand. */
+  steps?: number;
+  cfg?: number;
   seed: number;
   batchSize: number;
 }
@@ -217,7 +227,7 @@ export interface T2IParams {
 export async function buildT2IWorkflow(params: T2IParams): Promise<Record<string, unknown>> {
   const wf = await loadWorkflow(params.workflowId);
   const json = JSON.stringify(wf)
-    .replace(/__CKPT__/g, params.checkpoint)
+    .replace(/__CKPT__/g, params.checkpoint ?? '')
     .replace(/__POSITIVE__/g, escapeForJson(params.positive))
     .replace(/__NEGATIVE__/g, escapeForJson(params.negative));
 
@@ -228,17 +238,19 @@ export async function buildT2IWorkflow(params: T2IParams): Promise<Record<string
     const n = node as { class_type?: string; inputs?: Record<string, unknown> };
     if (!n.inputs) continue;
     if (n.class_type === 'KSampler' || n.class_type === 'KSamplerAdvanced') {
-      n.inputs.steps = params.steps;
-      n.inputs.cfg = params.cfg;
+      if (params.steps != null) n.inputs.steps = params.steps;
+      if (params.cfg != null) n.inputs.cfg = params.cfg;
       n.inputs.seed = params.seed;
     }
-    if (n.class_type === 'BasicScheduler') {
+    if (n.class_type === 'BasicScheduler' && params.steps != null) {
       n.inputs.steps = params.steps;
     }
     if (n.class_type === 'RandomNoise') {
       n.inputs.noise_seed = params.seed;
     }
-    if (n.class_type === 'EmptyLatentImage') {
+    // Flux-derived graphs (Chroma) use the 16-channel latent node, so matching
+    // only EmptyLatentImage would leave the size stuck at whatever the JSON says.
+    if (n.class_type === 'EmptyLatentImage' || n.class_type === 'EmptySD3LatentImage') {
       n.inputs.width = params.width;
       n.inputs.height = params.height;
       n.inputs.batch_size = params.batchSize;

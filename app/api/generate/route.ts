@@ -143,8 +143,10 @@ export async function POST(req: NextRequest) {
           negative: body.negative ?? '',
           width: body.width ?? 1024,
           height: body.height ?? 1024,
-          steps: body.steps ?? 25,
-          cfg: body.cfg ?? 7,
+          // Undefined on a self-contained graph: Chroma expects CFG 4, and the
+          // form's default of 7 would wash every image out.
+          steps: needsCheckpoint ? body.steps ?? 25 : undefined,
+          cfg: needsCheckpoint ? body.cfg ?? 7 : undefined,
           seed,
           batchSize: body.batchSize ?? 1,
         });
