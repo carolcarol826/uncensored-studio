@@ -17,6 +17,12 @@ export interface WorkflowMeta {
    */
   localOnly?: boolean;
   /**
+   * Chosen by the server, never offered in the picker. Users asked not to be
+   * made to pick models — they want the result — so a graph that exists only to
+   * handle a particular input stays out of the list.
+   */
+  internal?: boolean;
+  /**
    * The graph names its own weights, so there is no checkpoint to pick and the
    * sampler settings are fixed by the model (a Lightning LoRA that only works
    * at its trained step count, for instance).
@@ -60,6 +66,15 @@ export const WORKFLOWS: WorkflowMeta[] = [
     vramHint: '8 GB VRAM · GGUF Q4',
     // Needs ae/t5xxl/clip_l plus a Flux unet; none are on the volume.
     localOnly: true,
+  },
+  {
+    id: 'qwen-zh-t2i',
+    name: '文生图 (中文)',
+    category: 'text2img',
+    description: 'Chroma 读不懂中文，Qwen 可以 — 中文提示词自动走这条路',
+    vramHint: '24 GB VRAM · fp8 · 4 步',
+    selfContained: true,
+    internal: true,
   },
   {
     id: 'qwen-edit-i2i',
@@ -190,9 +205,10 @@ export const WORKFLOWS: WorkflowMeta[] = [
 export function listWorkflows(category?: WorkflowMeta['category']): WorkflowMeta[] {
   // On RunPod only the weights we host can load, so a localOnly workflow is not
   // a slower choice there — it is a job that always fails and has to be refunded.
-  const usable = process.env.INFERENCE_PROVIDER === 'runpod'
+  const usable = (process.env.INFERENCE_PROVIDER === 'runpod'
     ? WORKFLOWS.filter((w) => !w.localOnly)
-    : WORKFLOWS;
+    : WORKFLOWS
+  ).filter((w) => !w.internal);
   if (!category) return usable;
   return usable.filter((w) => w.category === category);
 }
@@ -255,6 +271,12 @@ export async function buildT2IWorkflow(params: T2IParams): Promise<Record<string
       n.inputs.width = params.width;
       n.inputs.height = params.height;
       n.inputs.batch_size = params.batchSize;
+    }
+    // The Chinese graph paints over a generated canvas rather than an upload,
+    // so its size is what decides the output's size.
+    if (n.class_type === 'EmptyImage') {
+      n.inputs.width = params.width;
+      n.inputs.height = params.height;
     }
   }
 

@@ -298,7 +298,7 @@ const zh: Dict = {
   },
   gen: {
     page: {
-      text2imgTitle: '文生图', text2imgDesc: '⚠️ 本页请用英文 —— 底层模型只认英文，中文会被忽略（想用中文去「图生图」）。💡 构图写在最前面「full body photograph, whole body and face visible in frame」。⚠️ 想要勃起状态,光写 erect 不够(实测只有约 4 成命中,其余会画成下垂)——要写明方向「fully erect penis pointing upward toward his stomach, hard erection」,并在负向加「flaccid, soft penis, hanging down」。⚠️ 不要同时在正向写「大」又在负向写「small」,两股力同向叠加会把器官拉成不自然的长条',
+      text2imgTitle: '文生图', text2imgDesc: '中英文都可以 —— 写中文会自动换成读得懂中文的模型，你不用管。💡 构图写在最前面「全身入镜，全身和脸都在画面内」。⚠️ 想要勃起状态,光写「勃起」不够(实测只有约 4 成命中,其余会画成下垂)——要写明方向「勃起的阴茎向上贴近小腹」。⚠️ 不要同时在正向写「大」又在负向写「small」,两股力同向叠加会把器官拉成不自然的长条',
       img2imgTitle: '图生图', img2imgDesc: '上传一张图，说明要改什么（支持中文）。没说到的地方——长相、身材、场景——都会保持原样。💡 写明身体部位效果最好，例：「在他的两个乳头上各夹一个银色乳夹」',
       img2videoTitle: '图生视频', img2videoDesc: '上传图，让它根据 prompt 动起来（Wan 2.2 I2V）',
       text2videoTitle: '文生视频', text2videoDesc: '纯文本到视频（Wan 2.2 TI2V-5B）',
@@ -810,7 +810,7 @@ const en: Dict = {
   },
   gen: {
     page: {
-      text2imgTitle: 'Text → Image', text2imgDesc: 'Write the prompt in English — the model behind this page reads no other language. 💡 Lead with the framing ("full body photograph, whole body and face visible in frame"). ⚠️ "erect" on its own lands about four times in ten — the rest come back hanging. Name the direction: "fully erect penis pointing upward toward his stomach, hard erection", and put "flaccid, soft penis, hanging down" in the negative. Do not ask for "large" and negate "small" at the same time; both push the same way and the model satisfies them by stretching',
+      text2imgTitle: 'Text → Image', text2imgDesc: 'English or Chinese — a Chinese prompt is routed to a model that reads it, with nothing for you to switch. 💡 Lead with the framing ("full body photograph, whole body and face visible in frame"). ⚠️ "erect" on its own lands about four times in ten — the rest come back hanging. Name the direction: "fully erect penis angled up against his lower abdomen", and put "flaccid, soft penis, hanging down" in the negative. Do not ask for "large" and negate "small" at the same time; both push the same way and the model satisfies them by stretching',
       img2imgTitle: 'Image → Image', img2imgDesc: 'Upload a picture and say what to change. Anything you leave out — the face, the body, the room — comes back as it was. 💡 Name the body part: "attach a silver clamp to each of his nipples"',
       img2videoTitle: 'Image → Video', img2videoDesc: 'Animate your image with a prompt (Wan 2.2 I2V)',
       text2videoTitle: 'Text → Video', text2videoDesc: 'Pure text → video (Wan 2.2 TI2V-5B)',

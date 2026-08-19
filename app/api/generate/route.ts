@@ -83,9 +83,22 @@ export async function POST(req: NextRequest) {
   if (!CREDIT_COSTS[body.mode]) {
     return NextResponse.json({ error: `Unknown mode: ${body.mode}` }, { status: 400 });
   }
+  // Chroma reads prompts through a T5 encoder trained on English. A Chinese
+  // prompt is not merely handled badly — it is noise, and the sampler falls back
+  // on the checkpoint's own prior: asking in Chinese for a man kneeling in a
+  // white room returned a landscape painting, and the user still paid for it.
+  // Qwen reads Chinese natively, which is why img2img has always accepted it,
+  // and pointing that same graph at a blank canvas turns it into text-to-image.
+  // Measured: every element of a Chinese prompt was honoured, explicit anatomy
+  // included. Routing here rather than offering a picker keeps the promise that
+  // the user asks for a result, not for a model.
+  const zhText2img =
+    body.mode === 'text2img' && /[一-鿿]/.test(body.positive ?? '');
+  const workflowId = zhText2img ? 'qwen-zh-t2i' : body.workflowId;
+
   // A self-contained graph carries its own weights, so demanding a checkpoint
   // would reject a request that has everything it needs.
-  const needsCheckpoint = !isSelfContained(body.workflowId);
+  const needsCheckpoint = !isSelfContained(workflowId);
   if (!body.workflowId || (needsCheckpoint && !body.checkpoint) || !body.positive?.trim()) {
     return NextResponse.json(
       { error: 'workflowId, checkpoint, positive 必填' },
@@ -112,7 +125,7 @@ export async function POST(req: NextRequest) {
   const framesMul = body.numFrames && body.numFrames > 49 ? 2 : 1;
   // The A14B video graph loads 28GB of weights and samples through two experts,
   // so a clip costs us far more GPU time than the 5B one at the same settings.
-  const heavyModelMul = body.workflowId === 'wan22-i2v-14b' ? 2 : 1;
+  const heavyModelMul = workflowId === 'wan22-i2v-14b' ? 2 : 1;
   const costCredits =
     baseCost * hiResMul * framesMul * heavyModelMul * (body.batchSize ?? 1);
 
@@ -137,9 +150,14 @@ export async function POST(req: NextRequest) {
     switch (body.mode) {
       case 'text2img':
         workflow = await buildT2IWorkflow({
-          workflowId: body.workflowId,
+          workflowId,
           checkpoint,
-          positive: body.positive,
+          // An edit graph left to itself will politely adjust the grey canvas.
+          // Telling it to replace the picture entirely is what turns it into
+          // generation, and "nsfw" is the adapter's trigger word.
+          positive: zhText2img
+            ? `把这张空白图片完全替换成：${body.positive} nsfw`
+            : body.positive,
           negative: body.negative ?? '',
           width: body.width ?? 1024,
           height: body.height ?? 1024,
@@ -335,7 +353,7 @@ export async function POST(req: NextRequest) {
     const isVideo = body.mode === 'img2video' || body.mode === 'text2video';
     // Every Qwen graph carries the same 32GB of weights, so they all belong on
     // the worker that has them baked in rather than reading the volume.
-    const isQwen = body.workflowId.startsWith('qwen-');
+    const isQwen = workflowId.startsWith('qwen-');
     // Server-side finalization: RunPod calls this when the job completes, so a
     // generation is finalized + stored even if the user closes the browser tab.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
