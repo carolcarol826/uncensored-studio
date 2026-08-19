@@ -84,9 +84,10 @@ export const WORKFLOWS: WorkflowMeta[] = [
     id: 'wan22-i2v-14b',
     name: 'Wan 2.2 图生视频 (14B, 人脸保持最好)',
     category: 'img2video',
-    description: 'A14B 双专家模型 — 真实照片的长相保持明显优于 5B',
-    vramHint: '24 GB VRAM · fp8',
+    description: 'A14B 双专家 + 4 步蒸馏 — 长相保持最好，且比原来快约 5 倍',
+    vramHint: '24 GB VRAM · fp8 · 4 步',
     requiredCustomNodes: ['ComfyUI-VideoHelperSuite'],
+    selfContained: true,
   },
   {
     id: 'wan22-i2v',
@@ -548,22 +549,23 @@ export async function buildTryonWorkflow(params: TryonParams): Promise<Record<st
 
 export interface I2VParams {
   workflowId: string;
-  checkpoint: string;
+  checkpoint?: string;
   positive: string;
   negative: string;
   inputImage?: string;
   width: number;
   height: number;
   numFrames: number;
-  steps: number;
-  cfg: number;
+  /** Unset on a distilled graph, whose 4 steps and CFG 1 are not adjustable. */
+  steps?: number;
+  cfg?: number;
   seed: number;
 }
 
 export async function buildVideoWorkflow(params: I2VParams): Promise<Record<string, unknown>> {
   const wf = await loadWorkflow(params.workflowId);
   let json = JSON.stringify(wf)
-    .replace(/__CKPT__/g, params.checkpoint)
+    .replace(/__CKPT__/g, params.checkpoint ?? '')
     .replace(/__POSITIVE__/g, escapeForJson(params.positive))
     .replace(/__NEGATIVE__/g, escapeForJson(params.negative));
   if (params.inputImage) {
@@ -579,16 +581,18 @@ export async function buildVideoWorkflow(params: I2VParams): Promise<Record<stri
     // All Wan graphs run on ComfyUI's native nodes. Without these the video
     // ignored seed/steps/cfg/size and was fixed at whatever the JSON shipped.
     if (n.class_type === 'KSampler' || n.class_type === 'KSamplerAdvanced') {
-      n.inputs.steps = params.steps;
-      n.inputs.cfg = params.cfg;
+      if (params.steps != null) n.inputs.steps = params.steps;
+      if (params.cfg != null) n.inputs.cfg = params.cfg;
       // KSamplerAdvanced names the seed differently, and the A14B graph runs
       // two of them — the handover step has to track whatever `steps` becomes,
       // or a raised step count would leave the low-noise expert nothing to do.
       if (n.class_type === 'KSamplerAdvanced') {
         n.inputs.noise_seed = params.seed;
-        const half = Math.max(1, Math.round(params.steps / 2));
-        if (n.inputs.start_at_step === 0) n.inputs.end_at_step = half;
-        else n.inputs.start_at_step = half;
+        if (params.steps != null) {
+          const half = Math.max(1, Math.round(params.steps / 2));
+          if (n.inputs.start_at_step === 0) n.inputs.end_at_step = half;
+          else n.inputs.start_at_step = half;
+        }
       } else {
         n.inputs.seed = params.seed;
       }

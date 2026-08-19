@@ -200,8 +200,10 @@ export async function POST(req: NextRequest) {
           width: body.width ?? 832,
           height: body.height ?? 480,
           numFrames: body.numFrames ?? 81,
-          steps: body.steps ?? 20,
-          cfg: body.cfg ?? 6,
+          // Undefined on the distilled graph: forcing 20 steps back onto it
+          // would throw away the whole speed-up it was added for.
+          steps: needsCheckpoint ? body.steps ?? 20 : undefined,
+          cfg: needsCheckpoint ? body.cfg ?? 6 : undefined,
           seed,
         });
         break;
