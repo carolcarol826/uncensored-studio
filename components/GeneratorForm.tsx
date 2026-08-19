@@ -361,10 +361,11 @@ export default function GeneratorForm({
   const pollStatus = async (jobId: string, generationId?: string) => {
     const start = Date.now();
     const isVideo = mode === 'img2video' || mode === 'text2video';
-    // A cold Qwen worker has to pull a 32GB image before it can start, which was
-    // measured at just over seven minutes — so a five-minute ceiling reported
-    // "timed out" on jobs that were about to succeed. Twelve gives it room.
-    const maxMs = isVideo ? 30 * 60_000 : 12 * 60_000;
+    // A cold Qwen worker has to pull a 32GB image before it can start. Three
+    // measurements put that at 749s, 745s and one throttled outlier of 5684s,
+    // so the honest steady-state figure is about 12.4 minutes and a twelve
+    // minute ceiling still lands just short of it. Fifteen clears it.
+    const maxMs = isVideo ? 30 * 60_000 : 15 * 60_000;
     const qs = new URLSearchParams({ jobId });
     if (generationId) qs.set('generationId', generationId);
     while (Date.now() - start < maxMs) {
