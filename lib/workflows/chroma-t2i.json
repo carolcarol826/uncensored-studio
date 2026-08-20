@@ -1,5 +1,5 @@
 {
-  "_comment": "Chroma1-HD text-to-image. Chosen over SDXL because it was retrained from FLUX.1-schnell with the anatomical concepts the safety-filtered models are missing — the failure that had SDXL stretching a penis to the floor and omitting testicles is a missing prior, and no prompt fixes that. Apache 2.0, so it is usable commercially. Structure follows ComfyUI's Chroma workflow: T5 only, no CLIP, and the encoder is loaded with type 'chroma'. Real CFG applies here (unlike the distilled schnell it came from), so the negative prompt does work. Placeholders: __POSITIVE__, __NEGATIVE__. __CKPT__ is accepted and ignored — the graph names its own weights.",
+  "_comment": "Chroma1-HD text-to-image. Chosen over SDXL because it was retrained from FLUX.1-schnell with the anatomical concepts the safety-filtered models are missing — the failure that had SDXL stretching a penis to the floor and omitting testicles is a missing prior, and no prompt fixes that. Apache 2.0, so it is usable commercially. Structure follows ComfyUI's Chroma workflow: T5 only, no CLIP, and the encoder is loaded with type 'chroma'. Real CFG applies here (unlike the distilled schnell it came from), so the negative prompt does work. Placeholders: __POSITIVE__, __NEGATIVE__. __CKPT__ is accepted and ignored — the graph names its own weights. Node 10 loads the anatomy LoRA trained on this same base: even Chroma's prior for an erection is unreliable — plain wording produced a downward-hanging one about six times in ten, and no weighting reached the rest — so the form is carried by trained weights instead. It only fires when its trigger word is in the prompt, which the API prepends.",
   "1": {
     "inputs": { "unet_name": "Chroma1-HD-fp8mixed.safetensors", "weight_dtype": "default" },
     "class_type": "UNETLoader",
@@ -34,6 +34,15 @@
     "class_type": "EmptySD3LatentImage",
     "_meta": { "title": "Latent" }
   },
+  "10": {
+    "inputs": {
+      "model": ["1", 0],
+      "lora_name": "myhimcock-v2.safetensors",
+      "strength_model": 1.0
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": { "title": "Anatomy LoRA v2" }
+  },
   "7": {
     "inputs": {
       "seed": 0,
@@ -42,7 +51,7 @@
       "sampler_name": "euler",
       "scheduler": "beta",
       "denoise": 1.0,
-      "model": ["1", 0],
+      "model": ["10", 0],
       "positive": ["4", 0],
       "negative": ["5", 0],
       "latent_image": ["6", 0]

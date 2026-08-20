@@ -152,12 +152,20 @@ export async function POST(req: NextRequest) {
         workflow = await buildT2IWorkflow({
           workflowId,
           checkpoint,
-          // An edit graph left to itself will politely adjust the grey canvas.
-          // Telling it to replace the picture entirely is what turns it into
-          // generation, and "nsfw" is the adapter's trigger word.
+          // Two different trigger words, because the two graphs carry different
+          // adapters. The Chinese route is an edit graph pointed at a blank
+          // canvas: left to itself it would politely adjust the grey rather than
+          // repaint it, and "nsfw" wakes its NSFW adapter. The Chroma route
+          // carries the anatomy LoRA, which is inert unless its own trigger is
+          // present — without it the erection reverts to the base model's
+          // unreliable prior, which is the problem the training was for.
+          // Only Chroma carries the LoRA; on the SDXL graph the trigger is a
+          // meaningless token taking up room in the prompt.
           positive: zhText2img
             ? `把这张空白图片完全替换成：${body.positive} nsfw`
-            : body.positive,
+            : workflowId === 'chroma-t2i'
+              ? `myhimcock, ${body.positive}`
+              : body.positive,
           negative: body.negative ?? '',
           width: body.width ?? 1024,
           height: body.height ?? 1024,
